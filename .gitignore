@@ -1,0 +1,25 @@
+build/
+DerivedData/
+.DS_Store
+__pycache__/
+*.pyc
+*.xcuserstate
+AIUsage.xcodeproj/xcuserdata/
+AIUsage.xcodeproj/project.xcworkspace/xcuserdata/
+
+# 署名まわり。秘密鍵や資格情報は絶対にコミットしない。
+*.p12
+*.pfx
+*.p8
+*.pem
+*.cer
+*.certSigningRequest
+*.mobileprovision
+*.provisionprofile
+*.keychain
+*.keychain-db
+dist/
+ExportOptions.local.plist
+.env
+.env.*
+!.env.example

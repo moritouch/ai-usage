@@ -1,0 +1,65 @@
+name: Bug report
+description: AI Usageの不具合を報告する
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        セキュリティ上の問題は公開Issueへ書かず、SECURITY.mdの非公開報告手順を利用してください。
+        OAuth token、Keychain内容、完全なJSONL、statusline-raw.log、snapshot、settings.jsonは添付しないでください。
+
+  - type: input
+    id: app-version
+    attributes:
+      label: AI Usage version
+      description: AI Usageのversionとbuild番号を記載してください。
+      placeholder: 1.2.3 (45)
+    validations:
+      required: true
+
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      placeholder: macOS 15.x
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: 発生箇所
+      options:
+        - メニューバー
+        - ウィジェット
+        - 設定
+        - インストール・更新
+        - データ取得
+        - その他
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 症状と再現手順
+      description: 秘密情報、会話本文、個人パスを除き、最小限の手順を記載してください。
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待した結果
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: sensitive-data
+    attributes:
+      label: 公開前の確認
+      options:
+        - label: OAuth token、Keychain内容、生ログ、snapshot、個人パスを含めていません。
+          required: true

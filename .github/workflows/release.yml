@@ -1,0 +1,178 @@
+# This workflow is intentionally validation-only. Apple signing and notarization are performed
+# on a controlled Mac by scripts/release.sh. Publishing the validated draft is a separate human
+# action in the GitHub Releases UI.
+name: Validate GitHub Release Draft
+run-name: Validate release draft ${{ inputs.tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing draft tag, exactly v<MARKETING_VERSION>
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-release-draft-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  validate-draft:
+    name: Validate draft metadata and public assets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Validate draft without publishing it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          fail() {
+            printf '::error::%s\n' "$1" >&2
+            exit 1
+          }
+
+          if [[ ! "$INPUT_TAG" =~ ^v[0-9]+([.][0-9A-Za-z]+)*(-[0-9A-Za-z.-]+)?$ ]]; then
+            fail "The tag must use the v<MARKETING_VERSION> format."
+          fi
+          if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
+            fail "Run this workflow only from the repository default branch."
+          fi
+          if [[ ! "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            fail "The default-branch workflow commit is invalid."
+          fi
+
+          work_dir=$(mktemp -d "$RUNNER_TEMP/release-draft.XXXXXX")
+          trap 'rm -rf "$work_dir"' EXIT
+          release_json="$work_dir/release.json"
+          project_yml="$work_dir/project.yml"
+          asset_dir="$work_dir/assets"
+          mkdir -m 700 "$asset_dir"
+
+          tag_object_type=$(gh api \
+            "repos/$REPOSITORY/git/ref/tags/$INPUT_TAG" \
+            --jq '.object.type')
+          [[ "$tag_object_type" == "tag" ]] \
+            || fail "The release tag must be an annotated tag already pushed to GitHub."
+
+          tag_sha=$(gh api \
+            "repos/$REPOSITORY/commits/$INPUT_TAG" \
+            --jq '.sha')
+          [[ "$tag_sha" =~ ^[0-9a-f]{40}$ ]] \
+            || fail "The release tag did not resolve to a commit."
+
+          comparison_status=$(gh api \
+            "repos/$REPOSITORY/compare/$tag_sha...$GITHUB_SHA" \
+            --jq '.status')
+          case "$comparison_status" in
+            ahead|identical)
+              ;;
+            *)
+              fail "The release tag commit must be on the default-branch history."
+              ;;
+          esac
+
+          gh api --method GET \
+            "repos/$REPOSITORY/contents/project.yml" \
+            -H 'Accept: application/vnd.github.raw+json' \
+            -f "ref=$tag_sha" >"$project_yml"
+          version=$(awk '$1 == "MARKETING_VERSION:" {gsub(/"/, "", $2); print $2; exit}' "$project_yml")
+          [[ "$version" =~ ^[0-9]+([.][0-9A-Za-z]+)*(-[0-9A-Za-z.-]+)?$ ]] \
+            || fail "MARKETING_VERSION at the release tag is invalid."
+          [[ "$INPUT_TAG" == "v$version" ]] \
+            || fail "The tag does not match MARKETING_VERSION at the tagged commit."
+
+          dmg_name="AIUsage-$version.dmg"
+          checksum_name="$dmg_name.sha256"
+          gh api "repos/$REPOSITORY/releases/tags/$INPUT_TAG" >"$release_json"
+
+          jq -e \
+            --arg tag "$INPUT_TAG" \
+            --arg dmg "$dmg_name" \
+            --arg checksum "$checksum_name" \
+            '(.tag_name == $tag)
+             and (.draft == true)
+             and (.prerelease == false)
+             and ((.assets | length) == 2)
+             and (([.assets[].name] | sort) == ([$dmg, $checksum] | sort))
+             and all(.assets[]; .state == "uploaded")' \
+            "$release_json" >/dev/null \
+            || fail "The release must remain a non-prerelease draft with exactly the DMG and .sha256 assets."
+
+          if jq -r \
+              '([.name // "", .body // ""] + [.assets[]?.label // ""]) | join("\n")' \
+              "$release_json" \
+            | grep -Eiq '(/Users/|/home/[^/[:space:]]+/|file://|provenance([.]json)?|release-records|notary[-_ ]?log|submission[-_ ]?id)'; then
+            fail "Release metadata contains a private path or private provenance marker."
+          fi
+
+          dmg_asset_id=$(jq -er \
+            --arg name "$dmg_name" \
+            '.assets[] | select(.name == $name) | .id' \
+            "$release_json")
+          checksum_asset_id=$(jq -er \
+            --arg name "$checksum_name" \
+            '.assets[] | select(.name == $name) | .id' \
+            "$release_json")
+          [[ "$dmg_asset_id" =~ ^[0-9]+$ && "$checksum_asset_id" =~ ^[0-9]+$ ]] \
+            || fail "The release asset identifiers are invalid."
+
+          gh api \
+            -H 'Accept: application/octet-stream' \
+            "repos/$REPOSITORY/releases/assets/$dmg_asset_id" \
+            >"$asset_dir/$dmg_name"
+          gh api \
+            -H 'Accept: application/octet-stream' \
+            "repos/$REPOSITORY/releases/assets/$checksum_asset_id" \
+            >"$asset_dir/$checksum_name"
+
+          entry_count=$(find "$asset_dir" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')
+          [[ "$entry_count" == "2" ]] \
+            || fail "The downloaded draft did not contain exactly two filesystem entries."
+
+          dmg_path="$asset_dir/$dmg_name"
+          checksum_path="$asset_dir/$checksum_name"
+          [[ -f "$dmg_path" && ! -L "$dmg_path" && -s "$dmg_path" ]] \
+            || fail "The DMG asset is missing, empty, or not a regular file."
+          [[ -f "$checksum_path" && ! -L "$checksum_path" && -s "$checksum_path" ]] \
+            || fail "The checksum asset is missing, empty, or not a regular file."
+
+          checksum_lines=$(awk 'END {print NR}' "$checksum_path")
+          [[ "$checksum_lines" == "1" ]] \
+            || fail "The .sha256 asset must contain exactly one line."
+          recorded_hash=""
+          recorded_name=""
+          extra_field=""
+          read -r recorded_hash recorded_name extra_field <"$checksum_path"
+          [[ "$recorded_hash" =~ ^[0-9a-f]{64}$ && "$recorded_name" == "$dmg_name" && -z "$extra_field" ]] \
+            || fail "The .sha256 asset must contain only a lowercase SHA-256 and the DMG basename."
+          [[ "$(cat "$checksum_path")" == "$recorded_hash  $dmg_name" ]] \
+            || fail "The .sha256 asset must use the canonical two-space format."
+
+          actual_hash=$(sha256sum -- "$dmg_path" | awk '{print $1}')
+          [[ "$actual_hash" == "$recorded_hash" ]] \
+            || fail "The downloaded DMG does not match its .sha256 asset."
+
+          github_digest=$(jq -r \
+            --arg name "$dmg_name" \
+            '(.assets[] | select(.name == $name) | .digest) // ""' \
+            "$release_json")
+          if [[ -n "$github_digest" && "$github_digest" != "sha256:$actual_hash" ]]; then
+            fail "The GitHub asset digest does not match the downloaded DMG."
+          fi
+
+          {
+            printf '## GitHub Release draft validation\n\n'
+            printf -- '- Draft: `%s`\n' "$INPUT_TAG"
+            printf -- '- Tagged commit: `%s`\n' "$tag_sha"
+            printf -- '- Public assets: `%s`, `%s`\n' "$dmg_name" "$checksum_name"
+            printf -- '- DMG SHA-256: `%s`\n\n' "$actual_hash"
+            printf 'This workflow did not publish or modify the draft. An independent human must review and publish it in the GitHub UI.\n'
+          } >>"$GITHUB_STEP_SUMMARY"

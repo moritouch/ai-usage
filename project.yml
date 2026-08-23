@@ -1,0 +1,129 @@
+name: AIUsage
+options:
+  bundleIdPrefix: jp.co.forestx.aiusage
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.9.6
+
+schemes:
+  AIUsage:
+    build:
+      targets:
+        AIUsage: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - AIUsageTests
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: WTKUV8PPM7
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.9"
+    CURRENT_PROJECT_VERSION: "11"
+    ENABLE_HARDENED_RUNTIME: YES
+
+targets:
+  # メニューバー常駐アプリ。~/.codex などを読むため非サンドボックス。
+  # 収集結果を App Group コンテナに書き、ウィジェットへ渡す。
+  AIUsage:
+    type: application
+    platform: macOS
+    sources:
+      - App
+      - Resources
+      - path: Shared
+        excludes:
+          - en.lproj
+          - ja.lproj
+      - Shared/en.lproj/Localizable.strings
+      - Shared/ja.lproj/Localizable.strings
+    dependencies:
+      - target: AIUsageWidget
+        embed: true
+      - package: Sparkle
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: jp.co.forestx.aiusage
+        # ターゲット名は AIUsage のままにして、成果物の名前だけ空白入りにする。
+        # スキーム名やビルドパスに空白を持ち込まずに済む。
+        PRODUCT_NAME: AI Usage
+        CODE_SIGN_ENTITLEMENTS: App/AIUsage.entitlements
+        GENERATE_INFOPLIST_FILE: YES
+        COMBINE_HIDPI_IMAGES: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: AI Usage
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.utilities
+        LSUIElement: true
+        NSHumanReadableCopyright: Copyright © 2026 moritouch. Licensed under MIT.
+        SUFeedURL: https://moritouch.com/ai-usage/appcast.xml
+        SUPublicEDKey: "rUEpVqbT7U1FSjjuxv3WyP4Fqd1WFOqk/71V71fKKs0="
+        SUVerifyUpdateBeforeExtraction: true
+        SURequireSignedFeed: true
+        SUScheduledCheckInterval: 86400
+
+  # WidgetKit 拡張。macOS の要件でサンドボックス必須なので、
+  # 自前でログを読まず App Group 経由の snapshot だけを描画する。
+  AIUsageWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Widget
+      # Widgetは公開snapshotのモデルと描画だけを持ち、Keychain/API/log collectorを含めない。
+      - Shared/UsageModels.swift
+      - Shared/SnapshotStore.swift
+      - Shared/UsageFormatting.swift
+      - Shared/UsageBar.swift
+      - Shared/AppLanguage.swift
+      - Shared/en.lproj/Localizable.strings
+      - Shared/ja.lproj/Localizable.strings
+      # ギャラリーが拡張側のアイコンを引くことがあるので、本体と同じものを持たせる。
+      - App/Assets.xcassets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: jp.co.forestx.aiusage.widget
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: Widget/AIUsageWidget.entitlements
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: AI Usage
+        SKIP_INSTALL: YES
+    info:
+      path: Widget/Info.plist
+      properties:
+        # ギャラリーの見出しはこの名前を拾うので、アプリ名と揃える。
+        CFBundleName: AI Usage
+        CFBundleDisplayName: AI Usage
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+
+  AIUsageTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests
+      - Shared/UsageModels.swift
+      - Shared/PlanLabel.swift
+      - Shared/CodexCollector.swift
+      - Shared/SnapshotStore.swift
+      - Shared/AppLanguage.swift
+      - Shared/en.lproj/Localizable.strings
+      - Shared/ja.lproj/Localizable.strings
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: jp.co.forestx.aiusage.tests
+        GENERATE_INFOPLIST_FILE: YES
