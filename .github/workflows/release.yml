@@ -91,7 +91,26 @@ jobs:
 
           dmg_name="AIUsage-$version.dmg"
           checksum_name="$dmg_name.sha256"
-          gh api "repos/$REPOSITORY/releases/tags/$INPUT_TAG" >"$release_json"
+          repository_owner=${REPOSITORY%%/*}
+          repository_name=${REPOSITORY#*/}
+          release_id=$(gh api graphql \
+            -f owner="$repository_owner" \
+            -f name="$repository_name" \
+            -f tag="$INPUT_TAG" \
+            -f query='
+              query($owner: String!, $name: String!, $tag: String!) {
+                repository(owner: $owner, name: $name) {
+                  release(tagName: $tag) {
+                    databaseId
+                  }
+                }
+              }
+            ' \
+            --jq '.data.repository.release.databaseId // empty')
+          [[ "$release_id" =~ ^[0-9]+$ ]] \
+            || fail "The requested draft release was not found."
+          gh api --method GET \
+            "repos/$REPOSITORY/releases/$release_id" >"$release_json"
 
           jq -e \
             --arg tag "$INPUT_TAG" \
@@ -124,18 +143,19 @@ jobs:
           [[ "$dmg_asset_id" =~ ^[0-9]+$ && "$checksum_asset_id" =~ ^[0-9]+$ ]] \
             || fail "The release asset identifiers are invalid."
 
-          gh release download "$INPUT_TAG" \
-            --repo "$REPOSITORY" \
-            --dir "$asset_dir" \
-            --pattern "$dmg_name" \
-            --pattern "$checksum_name"
+          dmg_path="$asset_dir/$dmg_name"
+          checksum_path="$asset_dir/$checksum_name"
+          gh api --method GET \
+            -H 'Accept: application/octet-stream' \
+            "repos/$REPOSITORY/releases/assets/$dmg_asset_id" >"$dmg_path"
+          gh api --method GET \
+            -H 'Accept: application/octet-stream' \
+            "repos/$REPOSITORY/releases/assets/$checksum_asset_id" >"$checksum_path"
 
           entry_count=$(find "$asset_dir" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')
           [[ "$entry_count" == "2" ]] \
             || fail "The downloaded draft did not contain exactly two filesystem entries."
 
-          dmg_path="$asset_dir/$dmg_name"
-          checksum_path="$asset_dir/$checksum_name"
           [[ -f "$dmg_path" && ! -L "$dmg_path" && -s "$dmg_path" ]] \
             || fail "The DMG asset is missing, empty, or not a regular file."
           [[ -f "$checksum_path" && ! -L "$checksum_path" && -s "$checksum_path" ]] \
