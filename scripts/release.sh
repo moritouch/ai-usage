@@ -988,8 +988,8 @@ verify_exported_app() {
   receipt_set_string "update.requiresSignedFeed" "true"
   receipt_set_string "update.verifiesBeforeExtraction" "true"
 
-  codesign -d --entitlements :- "$APP" >"$app_entitlements" 2>"$app_entitlements_stderr"
-  codesign -d --entitlements :- "$widget" >"$widget_entitlements" 2>"$widget_entitlements_stderr"
+  codesign -d --entitlements - --xml "$APP" >"$app_entitlements" 2>"$app_entitlements_stderr"
+  codesign -d --entitlements - --xml "$widget" >"$widget_entitlements" 2>"$widget_entitlements_stderr"
   chmod 600 "$app_entitlements" "$widget_entitlements" \
     "$app_entitlements_stderr" "$widget_entitlements_stderr"
   plutil -lint "$app_entitlements" >/dev/null
