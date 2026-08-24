@@ -1,5 +1,5 @@
 #!/bin/bash
-# 非公開のimmutable GitHub Releaseを検証し、Cloudflare配信用assetとSparkle appcastを準備する。
+# 公開済みimmutable GitHub Releaseを検証し、Cloudflare配信用assetとSparkle appcastを準備する。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -41,7 +41,7 @@ Usage:
     --public-assets-root /path/to/profile/public/ai-usage/releases \
     --output /path/to/appcast.xml
 
-The private GitHub Release must already be published, non-prerelease, immutable,
+The GitHub Release must already be published, non-prerelease, immutable,
 and attested. Its notarized AIUsage-X.Y.Z.dmg and matching .sha256 must be
 identical to the two files in local dist/. The two files are staged atomically at
 PUBLIC_ASSETS_ROOT/vX.Y.Z/ and the signed appcast points to:
@@ -323,11 +323,19 @@ if [ -f "$OUTPUT" ]; then
     || fail "既存appcastの署名を検証できません"
 fi
 
-if ! CANONICAL_REPOSITORY=$(gh repo view "$REPOSITORY" --json nameWithOwner --jq '.nameWithOwner'); then
+REPOSITORY_JSON="$WORK_DIR/repository.json"
+if ! gh repo view "$REPOSITORY" --json nameWithOwner,visibility >"$REPOSITORY_JSON"; then
   fail "GitHub repositoryを取得できません: $REPOSITORY"
 fi
+chmod 600 "$REPOSITORY_JSON"
+CANONICAL_REPOSITORY=$(jq -er '.nameWithOwner' "$REPOSITORY_JSON") \
+  || fail "GitHubが返したrepository名を取得できません"
 [[ "$CANONICAL_REPOSITORY" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$ ]] \
   || fail "GitHubが返したrepository名が不正です"
+REPOSITORY_VISIBILITY=$(jq -er '.visibility' "$REPOSITORY_JSON") \
+  || fail "GitHub repositoryのvisibilityを取得できません"
+[ "$REPOSITORY_VISIBILITY" = "PUBLIC" ] \
+  || fail "GitHub repositoryはPublicである必要があります: $CANONICAL_REPOSITORY"
 REPOSITORY="$CANONICAL_REPOSITORY"
 
 RELEASE_JSON="$WORK_DIR/release.json"

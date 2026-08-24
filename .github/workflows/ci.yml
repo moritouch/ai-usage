@@ -87,7 +87,7 @@ jobs:
           rg -F 'PUBLIC_DOWNLOAD_BASE="$PRODUCT_URL/releases"' scripts/prepare-appcast.sh
           rg -F -- '--download-url-prefix "$PUBLIC_DOWNLOAD_BASE/$TAG/"' scripts/prepare-appcast.sh
           if rg -F 'download-url-prefix "https://github.com/' scripts/prepare-appcast.sh; then
-            echo 'Sparkle enclosure downloads must not point at the private GitHub repository.' >&2
+            echo 'Sparkle enclosure downloads must not point at GitHub Release assets.' >&2
             exit 1
           fi
           node --check docs/site.js

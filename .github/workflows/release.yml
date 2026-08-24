@@ -1,8 +1,8 @@
-# This workflow is intentionally validation-only. Apple signing and notarization are performed
-# on a controlled Mac by scripts/release.sh. Publishing the validated draft is a separate human
-# action in the GitHub Releases UI.
-name: Validate GitHub Release Draft
-run-name: Validate release draft ${{ inputs.tag }}
+# Apple signing and notarization are performed on a controlled Mac by scripts/release.sh.
+# This workflow validates the uploaded draft, waits for the release-publish environment approval,
+# revalidates the same tag and assets, and only then publishes the immutable GitHub Release.
+name: Validate and Publish GitHub Release
+run-name: Release gate ${{ inputs.tag }} (publish=${{ inputs.publish }})
 
 on:
   workflow_dispatch:
@@ -11,12 +11,16 @@ on:
         description: Existing draft tag, exactly v<MARKETING_VERSION>
         required: true
         type: string
+      publish:
+        description: Confirm release immutability is enabled, then wait for approval and publish
+        required: true
+        default: false
+        type: boolean
 
-# GitHub exposes draft releases only to tokens with push access. This job never checks out
-# repository code and every GitHub API request below is read-only; publishing remains a
-# separate human action in the Releases UI.
-permissions:
-  contents: write
+# GitHub exposes draft releases only to tokens with push access. Neither job checks out or runs
+# repository code. The first job is read-only; the approved second job performs one PATCH that
+# changes draft=true to draft=false after repeating the critical checks.
+permissions: {}
 
 concurrency:
   group: github-release-draft-${{ inputs.tag }}
@@ -24,16 +28,30 @@ concurrency:
 
 jobs:
   validate-draft:
-    name: Validate draft metadata and internal assets
+    name: Validate draft metadata and release assets
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      release_id: ${{ steps.validate.outputs.release_id }}
+      tag_sha: ${{ steps.validate.outputs.tag_sha }}
+      version: ${{ steps.validate.outputs.version }}
+      dmg_name: ${{ steps.validate.outputs.dmg_name }}
+      checksum_name: ${{ steps.validate.outputs.checksum_name }}
+      dmg_sha256: ${{ steps.validate.outputs.dmg_sha256 }}
+      release_fingerprint: ${{ steps.validate.outputs.release_fingerprint }}
+      release_content_fingerprint: ${{ steps.validate.outputs.release_content_fingerprint }}
+      asset_fingerprint: ${{ steps.validate.outputs.asset_fingerprint }}
     steps:
-      - name: Validate draft without publishing it
+      - name: Validate draft before approval
+        id: validate
         env:
           GH_TOKEN: ${{ github.token }}
           INPUT_TAG: ${{ inputs.tag }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           REPOSITORY: ${{ github.repository }}
+          PUBLISH_REQUESTED: ${{ inputs.publish }}
         run: |
           set -euo pipefail
 
@@ -45,6 +63,13 @@ jobs:
           if [[ ! "$INPUT_TAG" =~ ^v[0-9]+([.][0-9A-Za-z]+)*(-[0-9A-Za-z.-]+)?$ ]]; then
             fail "The tag must use the v<MARKETING_VERSION> format."
           fi
+          case "$PUBLISH_REQUESTED" in
+            true|false)
+              ;;
+            *)
+              fail "The publish input must be true or false."
+              ;;
+          esac
           if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
             fail "Run this workflow only from the repository default branch."
           fi
@@ -180,19 +205,455 @@ jobs:
           [[ "$actual_hash" == "$recorded_hash" ]] \
             || fail "The downloaded DMG does not match its .sha256 asset."
 
-          github_digest=$(jq -r \
+          github_digest=$(jq -er \
             --arg name "$dmg_name" \
-            '(.assets[] | select(.name == $name) | .digest) // ""' \
+            '.assets[] | select(.name == $name) | .digest' \
             "$release_json")
-          if [[ -n "$github_digest" && "$github_digest" != "sha256:$actual_hash" ]]; then
-            fail "The GitHub asset digest does not match the downloaded DMG."
-          fi
+          [[ "$github_digest" == "sha256:$actual_hash" ]] \
+            || fail "The GitHub asset digest does not match the downloaded DMG."
+          actual_checksum_hash=$(sha256sum -- "$checksum_path" | awk '{print $1}')
+          github_checksum_digest=$(jq -er \
+            --arg name "$checksum_name" \
+            '.assets[] | select(.name == $name) | .digest' \
+            "$release_json")
+          [[ "$github_checksum_digest" == "sha256:$actual_checksum_hash" ]] \
+            || fail "The GitHub asset digest does not match the downloaded checksum."
+
+          release_fingerprint() {
+            jq -cS '
+              {
+                id, tag_name, target_commitish, name, body,
+                draft, prerelease, immutable, published_at,
+                assets: (
+                  [.assets[] | {
+                    id, name, label, state, content_type, size,
+                    digest, created_at, updated_at
+                  }] | sort_by(.id)
+                )
+              }
+            ' "$1" | sha256sum | awk '{print $1}'
+          }
+
+          asset_fingerprint() {
+            jq -cS '
+              [.assets[] | {
+                id, name, label, state, content_type, size,
+                digest, created_at, updated_at
+              }] | sort_by(.id)
+            ' "$1" | sha256sum | awk '{print $1}'
+          }
+
+          release_content_fingerprint() {
+            jq -cS '
+              {
+                id, tag_name, target_commitish, name, body, prerelease,
+                assets: (
+                  [.assets[] | {
+                    id, name, label, state, content_type, size,
+                    digest, created_at, updated_at
+                  }] | sort_by(.id)
+                )
+              }
+            ' "$1" | sha256sum | awk '{print $1}'
+          }
+
+          validated_release_fingerprint=$(release_fingerprint "$release_json")
+          validated_release_content_fingerprint=$(release_content_fingerprint "$release_json")
+          validated_asset_fingerprint=$(asset_fingerprint "$release_json")
+
+          {
+            printf 'release_id=%s\n' "$release_id"
+            printf 'tag_sha=%s\n' "$tag_sha"
+            printf 'version=%s\n' "$version"
+            printf 'dmg_name=%s\n' "$dmg_name"
+            printf 'checksum_name=%s\n' "$checksum_name"
+            printf 'dmg_sha256=%s\n' "$actual_hash"
+            printf 'release_fingerprint=%s\n' "$validated_release_fingerprint"
+            printf 'release_content_fingerprint=%s\n' "$validated_release_content_fingerprint"
+            printf 'asset_fingerprint=%s\n' "$validated_asset_fingerprint"
+          } >>"$GITHUB_OUTPUT"
 
           {
             printf '## GitHub Release draft validation\n\n'
             printf -- '- Draft: `%s`\n' "$INPUT_TAG"
             printf -- '- Tagged commit: `%s`\n' "$tag_sha"
-            printf -- '- Internal release assets: `%s`, `%s`\n' "$dmg_name" "$checksum_name"
+            printf -- '- Release assets: `%s`, `%s`\n' "$dmg_name" "$checksum_name"
             printf -- '- DMG SHA-256: `%s`\n\n' "$actual_hash"
-            printf 'This workflow did not publish or modify the draft. An independent human must review and publish it in the GitHub UI.\n'
+            if [[ "$PUBLISH_REQUESTED" == "true" ]]; then
+              printf 'Validation succeeded. Publishing remains blocked until the `release-publish` environment is approved.\n'
+            else
+              printf 'Validation-only run. The draft was not modified and no approval was requested.\n'
+            fi
+          } >>"$GITHUB_STEP_SUMMARY"
+
+  publish-release:
+    name: Revalidate and publish the immutable release
+    needs: validate-draft
+    if: ${{ inputs.publish == true }}
+    environment: release-publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      attestations: read
+      contents: write
+    steps:
+      - name: Revalidate after approval and publish
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REPOSITORY: ${{ github.repository }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          VALIDATED_RELEASE_ID: ${{ needs.validate-draft.outputs.release_id }}
+          VALIDATED_TAG_SHA: ${{ needs.validate-draft.outputs.tag_sha }}
+          VALIDATED_VERSION: ${{ needs.validate-draft.outputs.version }}
+          VALIDATED_DMG_NAME: ${{ needs.validate-draft.outputs.dmg_name }}
+          VALIDATED_CHECKSUM_NAME: ${{ needs.validate-draft.outputs.checksum_name }}
+          VALIDATED_DMG_SHA256: ${{ needs.validate-draft.outputs.dmg_sha256 }}
+          VALIDATED_RELEASE_FINGERPRINT: ${{ needs.validate-draft.outputs.release_fingerprint }}
+          VALIDATED_RELEASE_CONTENT_FINGERPRINT: ${{ needs.validate-draft.outputs.release_content_fingerprint }}
+          VALIDATED_ASSET_FINGERPRINT: ${{ needs.validate-draft.outputs.asset_fingerprint }}
+        run: |
+          set -euo pipefail
+
+          fail() {
+            printf '::error::%s\n' "$1" >&2
+            exit 1
+          }
+
+          post_publish_fail() {
+            {
+              printf '## Release published; post-publication verification failed\n\n'
+              printf -- '- Release: [`%s`](%s/%s/releases/tag/%s)\n' \
+                "$INPUT_TAG" "$GITHUB_SERVER_URL" "$REPOSITORY" "$INPUT_TAG"
+              printf -- '- Immutable: `true`\n\n'
+              printf 'Do not rerun the publish workflow. Inspect the immutable Release manually.\n'
+            } >>"$GITHUB_STEP_SUMMARY"
+            fail "$1"
+          }
+
+          release_fingerprint() {
+            jq -cS '
+              {
+                id, tag_name, target_commitish, name, body,
+                draft, prerelease, immutable, published_at,
+                assets: (
+                  [.assets[] | {
+                    id, name, label, state, content_type, size,
+                    digest, created_at, updated_at
+                  }] | sort_by(.id)
+                )
+              }
+            ' "$1" | sha256sum | awk '{print $1}'
+          }
+
+          asset_fingerprint() {
+            jq -cS '
+              [.assets[] | {
+                id, name, label, state, content_type, size,
+                digest, created_at, updated_at
+              }] | sort_by(.id)
+            ' "$1" | sha256sum | awk '{print $1}'
+          }
+
+          release_content_fingerprint() {
+            jq -cS '
+              {
+                id, tag_name, target_commitish, name, body, prerelease,
+                assets: (
+                  [.assets[] | {
+                    id, name, label, state, content_type, size,
+                    digest, created_at, updated_at
+                  }] | sort_by(.id)
+                )
+              }
+            ' "$1" | sha256sum | awk '{print $1}'
+          }
+
+          if [[ ! "$INPUT_TAG" =~ ^v[0-9]+([.][0-9A-Za-z]+)*(-[0-9A-Za-z.-]+)?$ ]]; then
+            fail "The tag must use the v<MARKETING_VERSION> format."
+          fi
+          if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
+            fail "Run this workflow only from the repository default branch."
+          fi
+          if [[ "$GITHUB_RUN_ATTEMPT" != "1" ]]; then
+            fail "Publishing requires a new workflow dispatch, not a rerun."
+          fi
+          [[ "$VALIDATED_RELEASE_ID" =~ ^[0-9]+$ ]] \
+            || fail "The validated release identifier is invalid."
+          [[ "$VALIDATED_TAG_SHA" =~ ^[0-9a-f]{40}$ ]] \
+            || fail "The validated tag commit is invalid."
+          [[ "$VALIDATED_VERSION" =~ ^[0-9]+([.][0-9A-Za-z]+)*(-[0-9A-Za-z.-]+)?$ ]] \
+            || fail "The validated version is invalid."
+          [[ "$VALIDATED_DMG_SHA256" =~ ^[0-9a-f]{64}$ ]] \
+            || fail "The validated DMG digest is invalid."
+          [[ "$VALIDATED_RELEASE_FINGERPRINT" =~ ^[0-9a-f]{64}$ ]] \
+            || fail "The validated release fingerprint is invalid."
+          [[ "$VALIDATED_RELEASE_CONTENT_FINGERPRINT" =~ ^[0-9a-f]{64}$ ]] \
+            || fail "The validated release content fingerprint is invalid."
+          [[ "$VALIDATED_ASSET_FINGERPRINT" =~ ^[0-9a-f]{64}$ ]] \
+            || fail "The validated asset fingerprint is invalid."
+          [[ "$INPUT_TAG" == "v$VALIDATED_VERSION" ]] \
+            || fail "The approved tag no longer matches the validated version."
+          [[ "$VALIDATED_DMG_NAME" == "AIUsage-$VALIDATED_VERSION.dmg" ]] \
+            || fail "The validated DMG name is invalid."
+          [[ "$VALIDATED_CHECKSUM_NAME" == "$VALIDATED_DMG_NAME.sha256" ]] \
+            || fail "The validated checksum name is invalid."
+
+          work_dir=$(mktemp -d "$RUNNER_TEMP/release-publish.XXXXXX")
+          trap 'rm -rf "$work_dir"' EXIT
+          draft_json="$work_dir/draft.json"
+          final_draft_json="$work_dir/final-draft.json"
+          published_json="$work_dir/published.json"
+          environment_json="$work_dir/environment.json"
+          project_yml="$work_dir/project.yml"
+          asset_dir="$work_dir/assets"
+          mkdir -m 700 "$asset_dir"
+
+          tag_object_type=$(gh api \
+            "repos/$REPOSITORY/git/ref/tags/$INPUT_TAG" \
+            --jq '.object.type')
+          [[ "$tag_object_type" == "tag" ]] \
+            || fail "The release tag must remain an annotated tag."
+
+          tag_sha=$(gh api \
+            "repos/$REPOSITORY/commits/$INPUT_TAG" \
+            --jq '.sha')
+          [[ "$tag_sha" == "$VALIDATED_TAG_SHA" ]] \
+            || fail "The release tag moved after validation."
+
+          comparison_status=$(gh api \
+            "repos/$REPOSITORY/compare/$tag_sha...$GITHUB_SHA" \
+            --jq '.status')
+          case "$comparison_status" in
+            ahead|identical)
+              ;;
+            *)
+              fail "The release tag commit is no longer on the default-branch history."
+              ;;
+          esac
+
+          gh api --method GET \
+            "repos/$REPOSITORY/contents/project.yml" \
+            -H 'Accept: application/vnd.github.raw+json' \
+            -f "ref=$tag_sha" >"$project_yml"
+          version=$(awk '$1 == "MARKETING_VERSION:" {gsub(/"/, "", $2); print $2; exit}' "$project_yml")
+          [[ "$version" == "$VALIDATED_VERSION" ]] \
+            || fail "MARKETING_VERSION at the tagged commit changed after validation."
+
+          gh api --method GET \
+            "repos/$REPOSITORY/releases/$VALIDATED_RELEASE_ID" >"$draft_json"
+          jq -e \
+            --arg tag "$INPUT_TAG" \
+            --arg dmg "$VALIDATED_DMG_NAME" \
+            --arg checksum "$VALIDATED_CHECKSUM_NAME" \
+            '(.tag_name == $tag)
+             and (.draft == true)
+             and (.prerelease == false)
+             and ((.assets | length) == 2)
+             and (([.assets[].name] | sort) == ([$dmg, $checksum] | sort))
+             and all(.assets[]; .state == "uploaded")' \
+            "$draft_json" >/dev/null \
+            || fail "The approved release is no longer the validated non-prerelease draft."
+
+          if jq -r \
+              '([.name // "", .body // ""] + [.assets[]?.label // ""]) | join("\n")' \
+              "$draft_json" \
+            | grep -Eiq '(/Users/|/home/[^/[:space:]]+/|file://|provenance([.]json)?|release-records|notary[-_ ]?log|submission[-_ ]?id)'; then
+            fail "Release metadata contains a private path or private provenance marker."
+          fi
+
+          [[ "$(release_fingerprint "$draft_json")" == "$VALIDATED_RELEASE_FINGERPRINT" ]] \
+            || fail "The draft metadata changed after validation. Start a new workflow run."
+          [[ "$(asset_fingerprint "$draft_json")" == "$VALIDATED_ASSET_FINGERPRINT" ]] \
+            || fail "The draft assets changed after validation. Start a new workflow run."
+
+          dmg_asset_id=$(jq -er \
+            --arg name "$VALIDATED_DMG_NAME" \
+            '.assets[] | select(.name == $name) | .id' \
+            "$draft_json")
+          checksum_asset_id=$(jq -er \
+            --arg name "$VALIDATED_CHECKSUM_NAME" \
+            '.assets[] | select(.name == $name) | .id' \
+            "$draft_json")
+          [[ "$dmg_asset_id" =~ ^[0-9]+$ && "$checksum_asset_id" =~ ^[0-9]+$ ]] \
+            || fail "The approved asset identifiers are invalid."
+
+          dmg_path="$asset_dir/$VALIDATED_DMG_NAME"
+          checksum_path="$asset_dir/$VALIDATED_CHECKSUM_NAME"
+          gh api --method GET \
+            -H 'Accept: application/octet-stream' \
+            "repos/$REPOSITORY/releases/assets/$dmg_asset_id" >"$dmg_path"
+          gh api --method GET \
+            -H 'Accept: application/octet-stream' \
+            "repos/$REPOSITORY/releases/assets/$checksum_asset_id" >"$checksum_path"
+
+          [[ -f "$dmg_path" && ! -L "$dmg_path" && -s "$dmg_path" ]] \
+            || fail "The approved DMG is missing, empty, or not a regular file."
+          [[ -f "$checksum_path" && ! -L "$checksum_path" && -s "$checksum_path" ]] \
+            || fail "The approved checksum is missing, empty, or not a regular file."
+          checksum_lines=$(awk 'END {print NR}' "$checksum_path")
+          [[ "$checksum_lines" == "1" ]] \
+            || fail "The approved .sha256 asset must contain exactly one line."
+          recorded_hash=""
+          recorded_name=""
+          extra_field=""
+          read -r recorded_hash recorded_name extra_field <"$checksum_path"
+          [[ "$recorded_hash" =~ ^[0-9a-f]{64}$ \
+             && "$recorded_name" == "$VALIDATED_DMG_NAME" \
+             && -z "$extra_field" ]] \
+            || fail "The approved checksum asset is not canonical."
+          [[ "$(cat "$checksum_path")" == "$recorded_hash  $VALIDATED_DMG_NAME" ]] \
+            || fail "The approved checksum asset must use the canonical two-space format."
+
+          actual_hash=$(sha256sum -- "$dmg_path" | awk '{print $1}')
+          [[ "$actual_hash" == "$VALIDATED_DMG_SHA256" && "$actual_hash" == "$recorded_hash" ]] \
+            || fail "The approved DMG no longer matches the validated SHA-256."
+          github_digest=$(jq -er \
+            --arg name "$VALIDATED_DMG_NAME" \
+            '.assets[] | select(.name == $name) | .digest' \
+            "$draft_json")
+          [[ "$github_digest" == "sha256:$actual_hash" ]] \
+            || fail "The approved GitHub asset digest does not match the DMG."
+          actual_checksum_hash=$(sha256sum -- "$checksum_path" | awk '{print $1}')
+          github_checksum_digest=$(jq -er \
+            --arg name "$VALIDATED_CHECKSUM_NAME" \
+            '.assets[] | select(.name == $name) | .digest' \
+            "$draft_json")
+          [[ "$github_checksum_digest" == "sha256:$actual_checksum_hash" ]] \
+            || fail "The approved GitHub asset digest does not match the checksum."
+
+          repository_visibility=$(gh api \
+            "repos/$REPOSITORY" \
+            --jq '.visibility')
+          [[ "$repository_visibility" == "public" ]] \
+            || fail "Publishing is allowed only after the repository is public."
+
+          gh api --method GET \
+            "repos/$REPOSITORY/environments/release-publish" >"$environment_json"
+          jq -e \
+            --arg owner "$REPOSITORY_OWNER" \
+            '(.name == "release-publish")
+             and any(
+               .protection_rules[]?;
+               (.type == "required_reviewers")
+               and (((.reviewers // []) | length) >= 1)
+               and any(
+                 .reviewers[]?;
+                 (.type == "User") and (.reviewer.login == $owner)
+               )
+             )' \
+            "$environment_json" >/dev/null \
+            || fail "The release-publish environment must require approval from the repository owner."
+
+          # Fail before publishing if the runner's GitHub CLI cannot verify immutable releases.
+          gh release verify --help >/dev/null
+          gh release verify-asset --help >/dev/null
+
+          # Recheck the tag, then the complete draft, immediately before the only mutation.
+          final_tag_sha=$(gh api \
+            "repos/$REPOSITORY/commits/$INPUT_TAG" \
+            --jq '.sha')
+          [[ "$final_tag_sha" == "$VALIDATED_TAG_SHA" ]] \
+            || fail "The release tag changed during final validation."
+          gh api --method GET \
+            "repos/$REPOSITORY/releases/$VALIDATED_RELEASE_ID" >"$final_draft_json"
+          [[ "$(release_fingerprint "$final_draft_json")" == "$VALIDATED_RELEASE_FINGERPRINT" ]] \
+            || fail "The draft changed during final validation. Start a new workflow run."
+
+          publish_request_succeeded=true
+          if ! gh api --method PATCH \
+              "repos/$REPOSITORY/releases/$VALIDATED_RELEASE_ID" \
+              -F draft=false >"$published_json"; then
+            publish_request_succeeded=false
+            printf '::warning::The publish request returned an error; checking the server-side release state.\n'
+          fi
+
+          published_ok=false
+          last_release_state="unavailable"
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if gh api --method GET \
+                "repos/$REPOSITORY/releases/$VALIDATED_RELEASE_ID" >"$published_json"; then
+              last_release_state=$(jq -r '
+                if .draft == true then "draft"
+                elif .immutable == true then "published-immutable"
+                else "published-mutable"
+                end
+              ' "$published_json")
+            fi
+            if [[ "$last_release_state" == "published-immutable" ]] \
+              && jq -e \
+                --arg tag "$INPUT_TAG" \
+                --argjson id "$VALIDATED_RELEASE_ID" \
+                '(.id == $id)
+                 and (.tag_name == $tag)
+                 and (.draft == false)
+                 and (.prerelease == false)
+                 and (.immutable == true)
+                 and ((.published_at | type) == "string")' \
+                "$published_json" >/dev/null; then
+              published_ok=true
+              break
+            fi
+            if [[ "$attempt" -lt 10 ]]; then sleep 3; fi
+          done
+          if [[ "$published_ok" != "true" ]]; then
+            {
+              printf '## Release publication requires manual verification\n\n'
+              printf -- '- Release: [`%s`](%s/%s/releases/tag/%s)\n' \
+                "$INPUT_TAG" "$GITHUB_SERVER_URL" "$REPOSITORY" "$INPUT_TAG"
+              printf -- '- PATCH request returned success: `%s`\n' "$publish_request_succeeded"
+              printf -- '- Last observed state: `%s`\n\n' "$last_release_state"
+              printf 'Do not rerun this workflow until the Release page has been inspected.\n'
+            } >>"$GITHUB_STEP_SUMMARY"
+            fail "Unable to confirm a published immutable release; inspect the Release page before any retry."
+          fi
+
+          [[ "$(asset_fingerprint "$published_json")" == "$VALIDATED_ASSET_FINGERPRINT" ]] \
+            || post_publish_fail "The published assets differ from the approved draft."
+          [[ "$(release_content_fingerprint "$published_json")" == "$VALIDATED_RELEASE_CONTENT_FINGERPRINT" ]] \
+            || post_publish_fail "The published release metadata differs from the approved draft."
+          if ! published_tag_sha=$(gh api \
+              "repos/$REPOSITORY/commits/$INPUT_TAG" \
+              --jq '.sha'); then
+            post_publish_fail "The published release tag could not be re-read."
+          fi
+          [[ "$published_tag_sha" == "$VALIDATED_TAG_SHA" ]] \
+            || post_publish_fail "The published release tag differs from the approved tag."
+
+          attestation_ok=false
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+            if gh release verify "$INPUT_TAG" --repo "$REPOSITORY" >/dev/null 2>&1 \
+              && gh release verify-asset "$INPUT_TAG" "$dmg_path" --repo "$REPOSITORY" >/dev/null 2>&1 \
+              && gh release verify-asset "$INPUT_TAG" "$checksum_path" --repo "$REPOSITORY" >/dev/null 2>&1; then
+              attestation_ok=true
+              break
+            fi
+            if [[ "$attempt" -lt 20 ]]; then sleep 5; fi
+          done
+          if [[ "$attestation_ok" != "true" ]]; then
+            gh release verify "$INPUT_TAG" --repo "$REPOSITORY" || true
+            gh release verify-asset "$INPUT_TAG" "$dmg_path" --repo "$REPOSITORY" || true
+            gh release verify-asset "$INPUT_TAG" "$checksum_path" --repo "$REPOSITORY" || true
+            {
+              printf '## Release published; attestation verification requires follow-up\n\n'
+              printf -- '- Release: [`%s`](%s/%s/releases/tag/%s)\n' \
+                "$INPUT_TAG" "$GITHUB_SERVER_URL" "$REPOSITORY" "$INPUT_TAG"
+              printf -- '- Immutable: `true`\n\n'
+              printf 'Do not rerun the publish workflow. Verify the Release and both assets manually.\n'
+            } >>"$GITHUB_STEP_SUMMARY"
+            fail "The release was published, but its attestations could not be verified."
+          fi
+
+          release_url=$(jq -er '.html_url' "$published_json")
+          printf 'release-url=%s\n' "$release_url" >>"$GITHUB_OUTPUT"
+          {
+            printf '## Immutable GitHub Release published\n\n'
+            printf -- '- Release: [`%s`](%s)\n' "$INPUT_TAG" "$release_url"
+            printf -- '- Tagged commit: `%s`\n' "$VALIDATED_TAG_SHA"
+            printf -- '- Release assets: `%s`, `%s`\n' "$VALIDATED_DMG_NAME" "$VALIDATED_CHECKSUM_NAME"
+            printf -- '- DMG SHA-256: `%s`\n' "$actual_hash"
+            printf -- '- Immutable: `true`\n'
           } >>"$GITHUB_STEP_SUMMARY"

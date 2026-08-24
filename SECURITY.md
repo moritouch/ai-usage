@@ -3,12 +3,9 @@
 ## 脆弱性を報告する
 
 脆弱性や、認証情報・個人情報が意図せず公開される問題を、公開ページやSNSへ書かないでください。
-このrepositoryは非公開で、GitHub Private Vulnerability Reportingを一般向け窓口として使用しません。
-
-一般配布を開始する前に、監視担当と応答手順を確認した非公開の報告窓口を
-`https://moritouch.com/ai-usage`へ掲載します。それまでは限定配布とし、既に個別連絡手段を持つ
-関係者だけがその経路でproject ownerへ報告します。監視が確認できていないメールアドレスや
-個人の連絡先は、この文書へ仮置きしません。
+この公開repositoryでは、GitHubの
+[Private Vulnerability Reporting](https://github.com/moritouch/ai-usage/security/advisories/new)から
+非公開で報告してください。通常のIssueには、未修正の脆弱性や秘密情報を投稿しないでください。
 
 報告には、可能な範囲で次を含めてください。
 

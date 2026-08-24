@@ -5,8 +5,8 @@ App Store外でDeveloper IDによる直接配布を行う。通常のリリー�
 
 正規の紹介ページは `https://moritouch.com/ai-usage`、Sparkle feedは
 `https://moritouch.com/ai-usage/appcast.xml` とし、moritouchのCloudflare配信を正本にする。
-非公開GitHub Releaseは内部の承認・immutable証跡として使い、一般利用者向けのDMG、SHA-256、
-appcast、MIT LicenseはCloudflare Workers Static Assetsから配信する。
+公開GitHub Releaseはsource、同じDMGとSHA-256、固定tag、immutable attestationの配布証跡として使う。
+一般利用者向けの正規download、appcast、MIT LicenseはCloudflare Workers Static Assetsから配信する。
 
 ```bash
 ./scripts/bootstrap-release-tools.sh
@@ -158,35 +158,46 @@ Apple側でAccepted済みか不明なままscript全体を再実行して重複s
 記録されたIDを使って `notarytool info` / `notarytool log` で照合してから再開方針を決める。
 
 配布前に、最終DMGのSHA-256、`spctl`、`stapler validate`、DMG内アプリのbundle ID、
-version/build、Team IDがrelease記録と一致することを別担当者が確認する。
+version/build、Team IDがrelease記録と一致することをrelease operatorが再確認する。複数のmaintainerが
+いる場合は署名担当者と承認者を分け、個人運用では同じownerが別の確認工程として記録する。
 
-## 非公開GitHub Releaseで成果物を確定する
+## 公開GitHub Releaseで成果物を確定する
 
-Git worktree、非公開GitHub repository、remote、default branchのどれかが未準備ならRelease作業を開始しない。
+Git worktree、公開GitHub repository、remote、default branchのどれかが未準備ならRelease作業を開始しない。
 この手順と`.github/workflows/release.yml`をdefault branchへ取り込み、remote上のcommitとCIを確認してから進む。
-repository URLや個人アカウント名をファイルへ埋め込まず、実際のrepository contextから取得する。
+workflow内のrepository名やdefault branchは、固定値ではなく実際のrepository contextから取得する。
 
 Apple署名・公証の正本は管理下Macで実行する`./scripts/release.sh`である。Developer ID秘密鍵、`.p8`、
 App用パスワード、notary profileをGitHub Actionsのrepository/environment secretへ登録しない。
 `release.yml`は`workflow_dispatch`だけを受け付ける。GitHubがDraft Releaseをpush権限のあるtokenにだけ
-公開するため、一時tokenには`contents: write`が必要だが、workflow内のAPI requestはGETだけに限定する。
-PR codeをcheckout・実行せず、Draftの作成、asset upload、Publish、Apple署名・公証は一切行わない。
+公開するため、2つのjobには短命な`GITHUB_TOKEN`の`contents: write`が必要になる。最初のjobはGETだけで
+Draftを検査する。承認後のjobもrepositoryをcheckoutせず再検査し、最後にReleaseの`draft`を`false`へ
+変えるPATCHを1回だけ実行する。Draft作成、asset upload、Apple署名・公証はworkflowで行わない。
 
 ### 初回のGitHub設定
 
 1. repository rootへMITの`LICENSE`を置き、履歴と配布対象に秘密情報や個人固有値がないことを確認する。
-2. 利用中のGitHub planでrulesetが使える場合はdefault branchと`v*` tagを保護する。使えない場合も、
-   tagを再利用せず、CI・annotated tag・別担当者の承認を必須にする。
+2. default branchと`v*` tagをrulesetまたはbranch/tag protectionで保護する。tagを再利用せず、
+   CI、annotated tag、Release承認を必須にする。
 3. Repository SettingsのReleasesで**release immutability**を有効にする。これは有効化後にPublishする
    Releaseだけへ適用されるため、最初のPublish前に設定する。
-4. ActionsへApple関連secretを作らない。Draft閲覧のためworkflow-level permissionは`contents: write`とするが、
-   repositoryをcheckoutせず、GitHub APIはread-only requestだけに限定する。
-5. 非公開GitHub Releaseの最終Publishは、署名担当者とは別の承認者がGitHub UIから手動で行う。
-6. GitHub Pagesを過去に公開していた場合はSettings > Pagesからunpublishし、Cloudflareの紹介ページと
+4. `release-publish` Environmentを作り、required reviewerを設定する。個人運用で同じownerが起動と承認を
+   行う場合はself-reviewを許可する。release immutabilityを確認してworkflowの`publish` checkboxを入れ、
+   Environmentでも承認することで2回の明示確認にする。
+   別のmaintainerを追加した場合はPrevent self-reviewを有効にして役割を分離する。
+5. ActionsへApple関連secretを作らない。Draft閲覧とPublishだけにjob-level `contents: write`を与え、
+   repositoryをcheckoutせず、外部Actionも使わない。
+6. Dependabot alerts、secret scanning、push protection、Private Vulnerability Reportingを有効にする。
+7. GitHub Pagesを過去に公開していた場合はSettings > Pagesからunpublishし、Cloudflareの紹介ページと
    appcastだけを正規配信面にする。
 
+通常の`GITHUB_TOKEN`にはrepository administrationのread権限を追加できないため、workflowからrelease
+immutability設定そのものは照会しない。広い長期PATをActionsへ保存する代わりに、起動時の`publish`
+checkboxとEnvironment承認時にownerが設定を確認する。Publish jobは公開後のReleaseが実際に
+`immutable=true`であることとattestationを必ず検証する。
+
 GitHubのimmutable releaseはPublish後のtag移動・削除とasset変更・削除を防ぎ、確定時のtag、commit、
-assetsに対するattestationを生成する。これはGitHub上の内部成果物集合の証跡であり、管理下MacでのApple
+assetsに対するattestationを生成する。これはGitHub上の公開成果物集合の証跡であり、管理下MacでのApple
 build provenanceの代替ではない。DraftはPublish前なら変更可能なので、asset検査をすべて終えてからPublishする。
 
 ### 1. 管理下Macで正規成果物を作る
@@ -215,7 +226,7 @@ submission ID、公証response/log、dSYM、entitlements、xcarchive、notary用
 ### 2. tagを固定してDraftを作る
 
 既存tagは移動・再利用しない。annotated tagを成果物のsource commitへ作成してpushしたあと、
-内部assetを明示した2ファイルだけに限定してDraftを作る。globは使わない。
+Release assetを明示した2ファイルだけに限定してDraftを作る。globは使わない。
 
 ```bash
 set -euo pipefail
@@ -241,34 +252,47 @@ gh release create "$TAG" \
   "$CHECKSUM"
 ```
 
-release noteはrepository collaboratorが閲覧できる。`/Users/...`などの個人パス、submission ID、
-`provenance.json`や非公開logの内容がないことをupload前に確認する。
+Draftのrelease noteはrepositoryへのwrite権限を持つユーザーだけが閲覧できるが、Publish後は一般公開される。
+`/Users/...`などの個人パス、submission ID、`provenance.json`や非公開logの内容がないことを
+upload前に確認する。
 
-### 3. Draftを検査して手動Publishする
+### 3. Draftを検査し、Actions上で承認してPublishする
 
 workflowはdefault branchからだけ起動する。tagがannotated tagでdefault branch履歴上にあること、tagと
 `MARKETING_VERSION`の一致、非prereleaseのDraftであること、assetがDMGと`.sha256`の2つだけであること、
-SHA-256とGitHub側digestを検査する。検査してもDraftはPublish・変更されない。
+SHA-256とGitHub側digestを最初のjobで検査する。`publish=true`の場合も、検査が成功するまで承認待ちへ進まない。
 
 ```bash
-gh workflow run release.yml --ref "$DEFAULT_BRANCH" -f tag="$TAG"
+gh workflow run release.yml \
+  --ref "$DEFAULT_BRANCH" \
+  -f tag="$TAG" \
+  -f publish=true
 ```
 
-Actions画面で`Validate GitHub Release Draft`が成功したあと、別の承認者が次を再確認する。
+Actions画面で`Validate draft metadata and release assets`が成功すると、`release-publish` Environmentの
+承認待ちになる。承認者は次を再確認する。
 
 - tagのcommitと非公開provenanceのcommitが一致する
 - 対象commitのCIが成功している
 - release noteに内部情報がない
 - 添付assetが`AIUsage-<version>.dmg`と同名`.sha256`だけである
 - ローカルとDraftからdownloadしたDMGのSHA-256が一致する
+- Repository Settingsでrelease immutabilityが有効なままである
 
-承認者が非公開repositoryのGitHub Releases Draft画面から**Publish release**を手動実行する。
-CLIやworkflowによる自動Publishを標準手順にしない。Publish後は次でimmutable状態とGitHub release
-attestationを確認する。一般利用者はこのReleaseへアクセスせず、アプリへGitHub tokenを持たせない。
+workflow runの**Review deployments**から`release-publish`を選び、**Approve and deploy**を押す。
+承認後のjobはtag、Draft metadata、asset ID・名前・サイズ・digest、downloadしたDMGのSHA-256をもう一度
+検査する。最初の検査後に内容が変わっていればPublishせず停止し、一致した場合だけDraftをPublishする。
+Publish後は`immutable=true`とGitHub release attestation、両assetのattestationまで検証する。
+成功runを再実行せず、やり直す場合は新しい`workflow_dispatch`として開始する。
+
+公開Releaseとassetは一般利用者もGitHubから取得できる。アプリ自身はGitHub APIやReleaseを参照せず、
+GitHub tokenも持たない。Sparkleの正規更新経路は引き続きCloudflare上のappcastと固定version assetである。
 
 ```bash
 gh release view "$TAG" --json tagName,isDraft,isImmutable,assets
 gh release verify "$TAG"
+gh release verify-asset "$TAG" "dist/AIUsage-${TAG#v}.dmg"
+gh release verify-asset "$TAG" "dist/AIUsage-${TAG#v}.dmg.sha256"
 ```
 
 GitHubが自動表示するsource archiveを除き、手動添付assetはDMGと`.sha256`だけにする。Publish後は
@@ -277,7 +301,7 @@ GitHubが自動表示するsource archiveを除き、手動添付assetはDMGと`
 
 ### 4. 署名済みappcastを生成してCloudflareへ反映する
 
-Draftや変更可能なassetをfeedへ載せない。非公開Releaseの手動Publish後に`isDraft=false`、
+Draftや変更可能なassetをfeedへ載せない。承認付きworkflowのPublish後に`isDraft=false`、
 `isImmutable=true`とattestationを確認してから、AI Usage repositoryで次を実行する。
 
 ```bash
@@ -296,7 +320,7 @@ mkdir -p "$PUBLIC_ASSETS_ROOT"
 ```
 
 `PROFILE_REPO`はmoritouchのCloudflare profile repositoryの絶対パスを指定する。
-`prepare-appcast.sh`はPublish済みnon-prerelease・immutableの非公開Release、GitHubとローカル`dist/`に
+`prepare-appcast.sh`はPublish済みnon-prerelease・immutableの公開Release、GitHubとローカル`dist/`に
 あるDMG／`.sha256`、公証・Gatekeeper判定、KeychainのSparkle鍵と`App/Info.plist`の公開鍵を照合する。
 25 MiB未満を確認し、`public/ai-usage/releases/$TAG/`へ2 assetをatomicに配置する。同じtagの既存directoryは
 2 fileがbyte一致する場合だけ再利用し、差し替えを拒否する。既存appcastの履歴を保持し、deltaを生成せず、
@@ -313,7 +337,7 @@ NEXT_PUBLIC_AI_USAGE_LATEST_VERSION="${TAG#v}" \
 ```
 
 deploy後は紹介ページ、DMGとSHA-256の直接download導線、Range応答、feedのContent-Typeと署名を
-productionで確認する。download先は検証済み非公開immutable Releaseとbyte一致する公証済みDMGでなければならない。
+productionで確認する。download先は検証済みimmutable Releaseとbyte一致する公証済みDMGでなければならない。
 
 ```bash
 set -euo pipefail
@@ -344,7 +368,7 @@ curl --fail --show-error --silent \
   --output "$VERIFY_DIR/range.bin"
 ```
 
-feed公開が失敗した場合は非公開GitHub Releaseのassetを変更せず、直前の正しく署名されたappcastへ戻してから
+feed公開が失敗した場合はimmutable GitHub Releaseのassetを変更せず、直前の正しく署名されたappcastへ戻してから
 Cloudflareを再deployする。新しいDMGが必要な問題は新version/build、tag、Releaseとして修正する。
 
 参考: [GitHubの手動workflow実行](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)、
@@ -361,15 +385,16 @@ Cloudflareを再deployする。新しいDMGが必要な問題は新version/build
 `0.1.9`の手動確認がエラーではなく「最新版です」で完了することを確認する。
 
 最初の実更新E2Eは`0.1.9`をインストールした検証環境から`0.1.10`へ行う。`0.1.10`の
-version/buildを上げ、公証済みDMGを非公開immutable GitHub Releaseとして確定し、上記手順でappcastを
+version/buildを上げ、公証済みDMGを公開immutable GitHub Releaseとして確定し、上記手順でappcastを
 Cloudflareへ反映したあと、設定の「アップデートを確認…」から検出、download、署名検証、置換、
 再起動、version/build、Widgetの再登録まで確認する。`0.1.9`自身の「最新版です」という結果は
 実更新E2Eの代わりにならない。
 
-以後の利用者は設定から自動確認を有効にするか、手動確認ボタンで更新する。公開前に署名担当者とは
-別の承認者が、release記録、公証status、最終DMGのハッシュ、Gatekeeper判定、release note、
-appcast enclosureと署名を確認し、対象version/buildと承認結果を記録する。承認前のDMGや公証なしDMG、
-Draft Releaseや非公開GitHub assetのURLをappcastへ置かない。
+以後の利用者は設定から自動確認を有効にするか、手動確認ボタンで更新する。公開前にrelease operatorが、
+release記録、公証status、最終DMGのハッシュ、Gatekeeper判定、release note、appcast enclosureと署名を
+確認し、対象version/buildと承認結果を記録する。複数のmaintainerがいる場合は署名担当者と承認者を分け、
+個人運用では同じownerが二段階で確認する。承認前のDMGや公証なしDMG、
+Draft ReleaseやGitHub Release assetのURLをappcastへ置かない。
 
 直前の正常版DMG、`.sha256`、release記録、dSYMはアクセス制御された保管先へimmutableに保持する。
 同名ファイルを差し替えず、保持期限とサポート対象を決める。公開先に旧版を残す場合は、既知の
