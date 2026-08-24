@@ -1,5 +1,5 @@
 "common.used" = "使用済み";
-"common.stale" = "古い値";
+"common.stale" = "Stale";
 "common.staleData" = "古いデータ";
 "common.noData" = "データなし";
 "common.settings" = "設定";
@@ -73,22 +73,22 @@
 "settings.language.detail" = "アプリ、設定、ヘルプ、ウィジェットの表示言語を変更します。";
 "settings.help" = "ヘルプ";
 "settings.staleHelp" = "古いデータについて";
-"settings.staleHelp.detail" = "古い値が表示される理由と、新しい値を取得する方法です。";
+"settings.staleHelp.detail" = "Staleが表示される理由と、新しい値を取得する方法です。";
 "settings.notInstalled" = "未インストール";
 "settings.shown" = "表示";
 "settings.hidden" = "非表示";
 "settings.visibility.hint" = "メニューバー、一覧、ウィジェットにこのエージェントを表示するかを切り替えます";
-"settings.staleStatus.format" = "古い値 · %1$@ — %2$@";
+"settings.staleStatus.format" = "Stale · %1$@ — %2$@";
 "settings.sourceStatus.format" = "%1$@ — %2$@";
 
 "help.windowTitle" = "AI Usage ヘルプ";
 "help.title" = "古いデータについて";
-"help.intro" = "「古い値」は、表示中の値が現在のものだとAI Usageで確認できない状態です。新しい値の取得失敗、観測時刻の欠落・不正、最後の有効な観測から6時間超などで表示されます。";
+"help.intro" = "「Stale」は、表示中の値が現在のものだとAI Usageで確認できない状態です。新しい値の取得失敗、観測時刻の欠落・不正、最後の有効な観測から6時間超などで表示されます。";
 "help.warning" = "この表示だけで、制限超過やアカウント異常とは判断できません。表示中の使用率とリセット時刻は現在と異なる可能性があります。";
 "help.collectionNote.format" = "直近の収集メモ: %@";
 "help.observed.format" = "観測時刻: %@";
 "help.lastChecked.format" = "最終確認: %@";
-"help.checkedExplanation" = "「最終確認」はAI Usageが取得を試みた時刻です。直近でも新しい有効な値を取得できなければ、古い値のままです。";
+"help.checkedExplanation" = "「最終確認」はAI Usageが取得を試みた時刻です。直近でも新しい有効な値を取得できなければ、Staleのままです。";
 "help.steps" = "試すこと";
 "help.claude.title" = "Claude Code";
 "help.claude.body" = "ネット接続、Claude Codeへのログイン、Keychainの許可を確認してください。statusLine経由の場合は、ターミナル版Claude Codeで通常の応答を完了します。レート制限中は時間を置いて再確認してください。連打してもキャッシュや待機時間は解除されません。";

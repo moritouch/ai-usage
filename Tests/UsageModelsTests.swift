@@ -70,7 +70,15 @@ final class UsageModelsTests: XCTestCase {
 
     func testSelectedLanguageUsesMatchingCopy() {
         XCTAssertEqual(L10n.text("common.stale", language: .english), "Stale")
-        XCTAssertEqual(L10n.text("common.stale", language: .japanese), "古い値")
+        XCTAssertEqual(L10n.text("common.stale", language: .japanese), "Stale")
+        XCTAssertEqual(
+            L10n.format(
+                "settings.staleStatus.format",
+                language: .japanese,
+                "usage API", "6時間前"
+            ),
+            "Stale · usage API — 6時間前"
+        )
         XCTAssertEqual(
             L10n.format("common.left.format", language: .japanese, "42%"),
             "残り 42%"
