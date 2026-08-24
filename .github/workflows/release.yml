@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   validate-draft:
-    name: Validate draft metadata and public assets
+    name: Validate draft metadata and internal assets
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -172,7 +172,7 @@ jobs:
             printf '## GitHub Release draft validation\n\n'
             printf -- '- Draft: `%s`\n' "$INPUT_TAG"
             printf -- '- Tagged commit: `%s`\n' "$tag_sha"
-            printf -- '- Public assets: `%s`, `%s`\n' "$dmg_name" "$checksum_name"
+            printf -- '- Internal release assets: `%s`, `%s`\n' "$dmg_name" "$checksum_name"
             printf -- '- DMG SHA-256: `%s`\n\n' "$actual_hash"
             printf 'This workflow did not publish or modify the draft. An independent human must review and publish it in the GitHub UI.\n'
           } >>"$GITHUB_STEP_SUMMARY"

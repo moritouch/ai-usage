@@ -1,5 +1,5 @@
 #!/bin/bash
-# 公開済みimmutable GitHub Releaseから、署名済みSparkle appcastを生成する。
+# 非公開のimmutable GitHub Releaseを検証し、Cloudflare配信用assetとSparkle appcastを準備する。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -10,15 +10,22 @@ APP_BUNDLE_ID="jp.co.forestx.aiusage"
 APP_NAME="AI Usage"
 PRODUCT_URL="https://moritouch.com/ai-usage"
 FEED_URL="$PRODUCT_URL/appcast.xml"
+PUBLIC_DOWNLOAD_BASE="$PRODUCT_URL/releases"
+CLOUDFLARE_MAX_STATIC_ASSET_BYTES=$((25 * 1024 * 1024))
 
 REPOSITORY=""
 TAG=""
 OUTPUT=""
+PUBLIC_ASSETS_ROOT=""
 WORK_DIR=""
 MOUNT_DIR=""
 MOUNTED=0
 LOCK_DIR="$ROOT/build/appcast.lock"
 LOCK_HELD=0
+ASSET_STAGE_DIR=""
+ASSET_LOCK_DIR=""
+ASSET_LOCK_HELD=0
+ASSET_STAGE_RESULT=""
 
 fail() {
   printf 'error: %s\n' "$1" >&2
@@ -31,11 +38,20 @@ Usage:
   ./scripts/prepare-appcast.sh \
     --repository OWNER/REPO \
     --tag vX.Y.Z \
+    --public-assets-root /path/to/profile/public/ai-usage/releases \
     --output /path/to/appcast.xml
 
-The GitHub Release must already be published, non-prerelease, immutable, and
-attested. Its notarized AIUsage-X.Y.Z.dmg and matching .sha256 must be identical
-to the two files in local dist/. Existing appcast history is preserved.
+The private GitHub Release must already be published, non-prerelease, immutable,
+and attested. Its notarized AIUsage-X.Y.Z.dmg and matching .sha256 must be
+identical to the two files in local dist/. The two files are staged atomically at
+PUBLIC_ASSETS_ROOT/vX.Y.Z/ and the signed appcast points to:
+
+  https://moritouch.com/ai-usage/releases/vX.Y.Z/AIUsage-X.Y.Z.dmg
+
+PUBLIC_ASSETS_ROOT must be an absolute, existing, non-symlink directory whose
+path ends in /public/ai-usage/releases. Existing version directories are accepted
+only when they contain exactly the same two regular files byte-for-byte. Existing
+appcast history is preserved and delta updates remain disabled.
 
 Sparkle's private EdDSA key is read only from the macOS Keychain account
 jp.co.forestx.aiusage. The private key is never exported or printed.
@@ -78,6 +94,28 @@ cleanup() {
     esac
   fi
 
+  if [ -n "$ASSET_STAGE_DIR" ]; then
+    case "$ASSET_STAGE_DIR" in
+      "$PUBLIC_ASSETS_ROOT"/.v*.stage.*)
+        rm -rf -- "$ASSET_STAGE_DIR"
+        ;;
+      *)
+        printf 'error: unexpected asset staging path; not removing: %s\n' \
+          "$ASSET_STAGE_DIR" >&2
+        if [ "$script_status" -eq 0 ]; then
+          script_status=1
+        fi
+        ;;
+    esac
+  fi
+
+  if [ "$ASSET_LOCK_HELD" -eq 1 ] && ! rmdir "$ASSET_LOCK_DIR"; then
+    printf 'error: public asset lockを解除できませんでした: %s\n' "$ASSET_LOCK_DIR" >&2
+    if [ "$script_status" -eq 0 ]; then
+      script_status=1
+    fi
+  fi
+
   if [ "$LOCK_HELD" -eq 1 ] && ! rmdir "$LOCK_DIR"; then
     printf 'error: appcast lockを解除できませんでした: %s\n' "$LOCK_DIR" >&2
     if [ "$script_status" -eq 0 ]; then
@@ -86,6 +124,96 @@ cleanup() {
   fi
   exit "$script_status"
 }
+
+canonicalize_public_assets_root() {
+  local input=$1
+  local canonical
+
+  [[ "$input" == /* ]] \
+    || fail "--public-assets-rootは絶対pathで指定してください"
+  case "$input" in
+    *//*|*/./*|*/../*|*/.|*/..)
+      fail "--public-assets-rootに非canonicalなpath要素を使用できません: $input"
+      ;;
+  esac
+  case "$input" in
+    */public/ai-usage/releases) ;;
+    *)
+      fail "--public-assets-rootは/public/ai-usage/releasesで終わる必要があります"
+      ;;
+  esac
+  [ -d "$input" ] && [ ! -L "$input" ] \
+    || fail "--public-assets-rootは既存の非symlink directoryを指定してください: $input"
+
+  canonical=$(cd "$input" && pwd -P) \
+    || fail "--public-assets-rootを解決できません: $input"
+  [ "$canonical" = "$input" ] \
+    || fail "--public-assets-rootまたは親directoryにsymlinkを使用できません: $input"
+  printf '%s\n' "$canonical"
+}
+
+assert_cloudflare_asset_size() {
+  local path=$1
+  local size
+
+  [ -f "$path" ] && [ ! -L "$path" ] \
+    || fail "Cloudflareへ配置するassetが通常fileではありません: $path"
+  size=$(stat -f '%z' "$path") \
+    || fail "asset sizeを取得できません: $path"
+  [ "$size" -lt "$CLOUDFLARE_MAX_STATIC_ASSET_BYTES" ] \
+    || fail "Cloudflare Static Assetsの25 MiB未満制約を超えています: $path ($size bytes)"
+}
+
+stage_public_release_assets() {
+  local target_dir="$PUBLIC_ASSETS_ROOT/$TAG"
+  local entry_count
+
+  ASSET_LOCK_DIR="$PUBLIC_ASSETS_ROOT/.$TAG.lock"
+  [ ! -e "$ASSET_LOCK_DIR" ] && [ ! -L "$ASSET_LOCK_DIR" ] \
+    || fail "public asset lockが既に存在します: $ASSET_LOCK_DIR"
+  mkdir "$ASSET_LOCK_DIR" 2>/dev/null \
+    || fail "public asset lockを取得できません: $ASSET_LOCK_DIR"
+  ASSET_LOCK_HELD=1
+
+  if [ -e "$target_dir" ] || [ -L "$target_dir" ]; then
+    [ -d "$target_dir" ] && [ ! -L "$target_dir" ] \
+      || fail "既存のversion配布先が非symlink directoryではありません: $target_dir"
+    [ -f "$target_dir/$DMG_NAME" ] && [ ! -L "$target_dir/$DMG_NAME" ] \
+      || fail "既存の公開DMGが通常fileではありません: $target_dir/$DMG_NAME"
+    [ -f "$target_dir/$CHECKSUM_NAME" ] && [ ! -L "$target_dir/$CHECKSUM_NAME" ] \
+      || fail "既存の公開checksumが通常fileではありません: $target_dir/$CHECKSUM_NAME"
+    entry_count=$(find "$target_dir" -mindepth 1 -maxdepth 1 -print | wc -l | tr -d ' ')
+    [ "$entry_count" = "2" ] \
+      || fail "既存のversion配布先はDMG/checksumの2 fileだけである必要があります: $target_dir"
+    cmp -s "$RELEASE_DMG" "$target_dir/$DMG_NAME" \
+      || fail "既存の公開DMGは検証済みRelease assetとbyte一致しません"
+    cmp -s "$RELEASE_CHECKSUM" "$target_dir/$CHECKSUM_NAME" \
+      || fail "既存の公開checksumは検証済みRelease assetとbyte一致しません"
+    ASSET_STAGE_RESULT="unchanged"
+  else
+    ASSET_STAGE_DIR=$(mktemp -d "$PUBLIC_ASSETS_ROOT/.$TAG.stage.XXXXXX") \
+      || fail "public asset staging directoryを作成できません"
+    chmod 755 "$ASSET_STAGE_DIR"
+    cp -p "$RELEASE_DMG" "$ASSET_STAGE_DIR/$DMG_NAME"
+    cp -p "$RELEASE_CHECKSUM" "$ASSET_STAGE_DIR/$CHECKSUM_NAME"
+    chmod 644 "$ASSET_STAGE_DIR/$DMG_NAME" "$ASSET_STAGE_DIR/$CHECKSUM_NAME"
+    cmp -s "$RELEASE_DMG" "$ASSET_STAGE_DIR/$DMG_NAME" \
+      || fail "stagingしたDMGが検証済みRelease assetと一致しません"
+    cmp -s "$RELEASE_CHECKSUM" "$ASSET_STAGE_DIR/$CHECKSUM_NAME" \
+      || fail "stagingしたchecksumが検証済みRelease assetと一致しません"
+    [ ! -e "$target_dir" ] && [ ! -L "$target_dir" ] \
+      || fail "staging中にversion配布先が作成されました: $target_dir"
+    mv "$ASSET_STAGE_DIR" "$target_dir"
+    ASSET_STAGE_DIR=""
+    ASSET_STAGE_RESULT="created"
+  fi
+
+  rmdir "$ASSET_LOCK_DIR" \
+    || fail "public asset lockを解除できませんでした: $ASSET_LOCK_DIR"
+  ASSET_LOCK_HELD=0
+}
+
+main() {
 trap cleanup EXIT
 
 while [ "$#" -gt 0 ]; do
@@ -108,6 +236,12 @@ while [ "$#" -gt 0 ]; do
       OUTPUT=$2
       shift 2
       ;;
+    --public-assets-root)
+      [ -z "$PUBLIC_ASSETS_ROOT" ] || { usage >&2; exit 2; }
+      [ "$#" -ge 2 ] || { usage >&2; exit 2; }
+      PUBLIC_ASSETS_ROOT=$2
+      shift 2
+      ;;
     --help|-h)
       usage
       exit 0
@@ -120,7 +254,8 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-[ -n "$REPOSITORY" ] && [ -n "$TAG" ] && [ -n "$OUTPUT" ] \
+[ -n "$REPOSITORY" ] && [ -n "$TAG" ] && [ -n "$PUBLIC_ASSETS_ROOT" ] \
+  && [ -n "$OUTPUT" ] \
   || { usage >&2; exit 2; }
 
 [[ "$REPOSITORY" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$ ]] \
@@ -151,6 +286,8 @@ for command_name in gh jq shasum cmp codesign spctl xcrun plutil xmllint python3
   command -v "$command_name" >/dev/null 2>&1 \
     || fail "必要なcommandがありません: $command_name"
 done
+
+PUBLIC_ASSETS_ROOT=$(canonicalize_public_assets_root "$PUBLIC_ASSETS_ROOT")
 
 [ -f "$LOCAL_DMG" ] && [ ! -L "$LOCAL_DMG" ] \
   || fail "local notarized DMGがありません: $LOCAL_DMG"
@@ -219,7 +356,7 @@ jq -e \
           and (.digest | type == "string"
                and test("^sha256:[0-9a-f]{64}$"))))
   ' "$RELEASE_JSON" >/dev/null \
-  || fail "Releaseは公開済み・stable・immutableで、DMG/checksumの2 assetだけである必要があります"
+  || fail "ReleaseはPublish済み・stable・immutableで、DMG/checksumの2 assetだけである必要があります"
 
 # immutable releaseのGitHub attestationも、appcastへ採用する前に確認する。
 gh release verify "$TAG" --repo "$REPOSITORY" >/dev/null \
@@ -239,6 +376,8 @@ PUBLIC_CHECKSUM="$DOWNLOAD_DIR/$CHECKSUM_NAME"
   || fail "GitHub ReleaseのDMG/checksumをdownloadできませんでした"
 [ "$(find "$DOWNLOAD_DIR" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')" = "2" ] \
   || fail "downloadしたasset数が2件ではありません"
+RELEASE_DMG="$PUBLIC_DMG"
+RELEASE_CHECKSUM="$PUBLIC_CHECKSUM"
 
 file_sha256() {
   shasum -a 256 "$1" | /usr/bin/awk '{print $1}'
@@ -267,7 +406,7 @@ checksum_value() {
 PUBLIC_DMG_SHA=$(file_sha256 "$PUBLIC_DMG")
 LOCAL_DMG_SHA=$(file_sha256 "$LOCAL_DMG")
 PUBLIC_CHECKSUM_VALUE=$(checksum_value "$PUBLIC_CHECKSUM" "$DMG_NAME") \
-  || fail "公開checksum fileの形式またはfilenameが不正です"
+  || fail "Release checksum fileの形式またはfilenameが不正です"
 LOCAL_CHECKSUM_VALUE=$(checksum_value "$LOCAL_CHECKSUM" "$DMG_NAME") \
   || fail "local checksum fileの形式またはfilenameが不正です"
 GITHUB_DMG_SHA=$(jq -er --arg name "$DMG_NAME" \
@@ -279,29 +418,33 @@ GITHUB_CHECKSUM_SHA=$(jq -er --arg name "$CHECKSUM_NAME" \
 PUBLIC_CHECKSUM_SHA=$(file_sha256 "$PUBLIC_CHECKSUM")
 
 [ "$PUBLIC_DMG_SHA" = "$PUBLIC_CHECKSUM_VALUE" ] \
-  || fail "公開DMGと公開checksumが一致しません"
+  || fail "Release DMGとRelease checksumが一致しません"
 [ "$PUBLIC_DMG_SHA" = "$GITHUB_DMG_SHA" ] \
-  || fail "公開DMGとGitHub asset digestが一致しません"
+  || fail "Release DMGとGitHub asset digestが一致しません"
 [ "$PUBLIC_DMG_SHA" = "$LOCAL_DMG_SHA" ] \
-  || fail "公開DMGとlocal dist DMGが一致しません"
+  || fail "Release DMGとlocal dist DMGが一致しません"
 [ "$LOCAL_DMG_SHA" = "$LOCAL_CHECKSUM_VALUE" ] \
   || fail "local dist DMGとlocal checksumが一致しません"
 [ "$PUBLIC_CHECKSUM_SHA" = "$GITHUB_CHECKSUM_SHA" ] \
-  || fail "公開checksumとGitHub asset digestが一致しません"
+  || fail "Release checksumとGitHub asset digestが一致しません"
 cmp -s "$PUBLIC_CHECKSUM" "$LOCAL_CHECKSUM" \
-  || fail "公開checksum fileとlocal checksum fileがbyte単位で一致しません"
+  || fail "Release checksum fileとlocal checksum fileがbyte単位で一致しません"
 
 GITHUB_DMG_SIZE=$(jq -er --arg name "$DMG_NAME" \
   '.assets[] | select(.name == $name) | .size' "$RELEASE_JSON")
 PUBLIC_DMG_SIZE=$(stat -f '%z' "$PUBLIC_DMG")
 [ "$PUBLIC_DMG_SIZE" = "$GITHUB_DMG_SIZE" ] \
-  || fail "公開DMGのsizeがGitHub metadataと一致しません"
+  || fail "Release DMGのsizeがGitHub metadataと一致しません"
 
-EXPECTED_DOWNLOAD_URL="https://github.com/$REPOSITORY/releases/download/$TAG/$DMG_NAME"
+EXPECTED_GITHUB_DOWNLOAD_URL="https://github.com/$REPOSITORY/releases/download/$TAG/$DMG_NAME"
 GITHUB_DOWNLOAD_URL=$(jq -er --arg name "$DMG_NAME" \
   '.assets[] | select(.name == $name) | .url' "$RELEASE_JSON")
-[ "$GITHUB_DOWNLOAD_URL" = "$EXPECTED_DOWNLOAD_URL" ] \
+[ "$GITHUB_DOWNLOAD_URL" = "$EXPECTED_GITHUB_DOWNLOAD_URL" ] \
   || fail "GitHub Release asset URLが固定tag URLと一致しません"
+EXPECTED_DOWNLOAD_URL="$PUBLIC_DOWNLOAD_BASE/$TAG/$DMG_NAME"
+
+assert_cloudflare_asset_size "$RELEASE_DMG"
+assert_cloudflare_asset_size "$RELEASE_CHECKSUM"
 
 codesign --verify --deep --strict --verbose=2 "$PUBLIC_DMG" 2>&1 | sed 's/^/    /'
 xcrun stapler validate "$PUBLIC_DMG" 2>&1 | sed 's/^/    /'
@@ -320,20 +463,20 @@ elif hdiutil attach -nobrowse -readonly -mountpoint "$MOUNT_DIR" \
        "$PUBLIC_DMG" >/dev/null 2>&1; then
   MOUNTED=1
 else
-  fail "公開DMGを読み取り専用でmountできません"
+  fail "Release DMGを読み取り専用でmountできません"
 fi
 
 MOUNTED_APP="$MOUNT_DIR/$APP_NAME.app"
-[ -d "$MOUNTED_APP" ] || fail "公開DMGに$APP_NAME.appがありません"
+[ -d "$MOUNTED_APP" ] || fail "Release DMGに$APP_NAME.appがありません"
 [ "$(find "$MOUNT_DIR" -mindepth 1 -maxdepth 1 -type d -name '*.app' | wc -l | tr -d ' ')" = "1" ] \
-  || fail "公開DMG内のapp bundleが1件ではありません"
+  || fail "Release DMG内のapp bundleが1件ではありません"
 
 codesign --verify --deep --strict --verbose=2 "$MOUNTED_APP" 2>&1 | sed 's/^/    /'
 xcrun stapler validate "$MOUNTED_APP" 2>&1 | sed 's/^/    /'
 spctl --assess --type execute -vv "$MOUNTED_APP" 2>&1 | sed 's/^/    /'
 
 APP_INFO="$MOUNTED_APP/Contents/Info.plist"
-[ -f "$APP_INFO" ] || fail "公開appのInfo.plistがありません"
+[ -f "$APP_INFO" ] || fail "Release appのInfo.plistがありません"
 plist_value() {
   /usr/libexec/PlistBuddy -c "Print :$1" "$2" 2>/dev/null
 }
@@ -347,30 +490,30 @@ REQUIRE_SIGNED_FEED=$(plist_value SURequireSignedFeed "$APP_INFO")
 VERIFY_BEFORE_EXTRACTION=$(plist_value SUVerifyUpdateBeforeExtraction "$APP_INFO")
 
 [ "$RELEASE_BUNDLE_ID" = "$APP_BUNDLE_ID" ] \
-  || fail "公開appのbundle IDが不正です: $RELEASE_BUNDLE_ID"
+  || fail "Release appのbundle IDが不正です: $RELEASE_BUNDLE_ID"
 [ "$RELEASE_VERSION" = "$VERSION" ] \
-  || fail "tagと公開appのversionが一致しません: $RELEASE_VERSION"
+  || fail "tagとRelease appのversionが一致しません: $RELEASE_VERSION"
 [[ "$RELEASE_BUILD" =~ ^[0-9]+$ ]] \
-  || fail "公開appのbuild numberが数値ではありません: $RELEASE_BUILD"
+  || fail "Release appのbuild numberが数値ではありません: $RELEASE_BUILD"
 [ "$RELEASE_FEED_URL" = "$FEED_URL" ] \
-  || fail "公開appのSparkle feed URLが不正です: $RELEASE_FEED_URL"
+  || fail "Release appのSparkle feed URLが不正です: $RELEASE_FEED_URL"
 [ "$RELEASE_PUBLIC_KEY" = "$KEYCHAIN_PUBLIC_KEY" ] \
-  || fail "公開appのSparkle公開鍵がKeychainと一致しません"
+  || fail "Release appのSparkle公開鍵がKeychainと一致しません"
 [ "$REQUIRE_SIGNED_FEED" = "true" ] \
-  || fail "公開appでSURequireSignedFeedが有効ではありません"
+  || fail "Release appでSURequireSignedFeedが有効ではありません"
 [ "$VERIFY_BEFORE_EXTRACTION" = "true" ] \
-  || fail "公開appでSUVerifyUpdateBeforeExtractionが有効ではありません"
+  || fail "Release appでSUVerifyUpdateBeforeExtractionが有効ではありません"
 
 PROJECT_VERSION=$(/usr/bin/awk '$1 == "MARKETING_VERSION:" {gsub(/"/, "", $2); print $2; exit}' \
   "$ROOT/project.yml")
 PROJECT_BUILD=$(/usr/bin/awk '$1 == "CURRENT_PROJECT_VERSION:" {gsub(/"/, "", $2); print $2; exit}' \
   "$ROOT/project.yml")
 [ "$PROJECT_VERSION" = "$RELEASE_VERSION" ] \
-  || fail "project.ymlと公開appのversionが一致しません"
+  || fail "project.ymlとRelease appのversionが一致しません"
 [ "$PROJECT_BUILD" = "$RELEASE_BUILD" ] \
-  || fail "project.ymlと公開appのbuild numberが一致しません"
+  || fail "project.ymlとRelease appのbuild numberが一致しません"
 
-cleanup_mount || fail "公開DMGのmountを解除できません"
+cleanup_mount || fail "Release DMGのmountを解除できません"
 
 ARCHIVES_DIR="$WORK_DIR/archives"
 mkdir "$ARCHIVES_DIR"
@@ -396,7 +539,7 @@ fi
 
 "$GENERATE_APPCAST" \
   --account "$KEYCHAIN_ACCOUNT" \
-  --download-url-prefix "https://github.com/$REPOSITORY/releases/download/$TAG/" \
+  --download-url-prefix "$PUBLIC_DOWNLOAD_BASE/$TAG/" \
   --link "$PRODUCT_URL" \
   --maximum-deltas 0 \
   --maximum-versions 0 \
@@ -508,6 +651,8 @@ NEW_ITEM_COUNT=$(sed -n '3p' "$FEED_VALIDATION")
   --verify "$PUBLIC_DMG" "$ENCLOSURE_SIGNATURE" >/dev/null \
   || fail "生成appcastのenclosure署名を検証できません"
 
+stage_public_release_assets
+
 OUTPUT_TEMP=$(mktemp "$OUTPUT_PARENT/.${OUTPUT_NAME}.XXXXXX")
 cp "$GENERATED_APPCAST" "$OUTPUT_TEMP"
 chmod 644 "$OUTPUT_TEMP"
@@ -515,7 +660,14 @@ mv "$OUTPUT_TEMP" "$OUTPUT"
 
 printf 'appcast ready: %s\n' "$OUTPUT"
 printf '  release: %s %s (build %s)\n' "$REPOSITORY" "$TAG" "$RELEASE_BUILD"
+printf '  public dmg: %s\n' "$EXPECTED_DOWNLOAD_URL"
+printf '  public assets: %s (%s)\n' "$PUBLIC_ASSETS_ROOT/$TAG" "$ASSET_STAGE_RESULT"
 printf '  dmg sha256: %s\n' "$PUBLIC_DMG_SHA"
 printf '  history: %s existing item(s), %s total item(s)\n' \
   "$OLD_ITEM_COUNT" "$NEW_ITEM_COUNT"
 printf '  deltas: 0\n'
+}
+
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main "$@"
+fi

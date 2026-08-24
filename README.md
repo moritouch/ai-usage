@@ -77,7 +77,7 @@ Claude Code の API は 180 秒キャッシュを挟むので、60 秒ごとの�
   snapshot、設定、ログへ保存しない。Codex と Grok の取得はローカルファイルの読み取りだけ。
 - アップデート確認を有効にした場合、Sparkleが
   `https://moritouch.com/ai-usage/appcast.xml` を確認する。更新を実行すると、appcastに記載された
-  GitHub Releasesの公証済みDMGをHTTPSで取得する。
+  `https://moritouch.com/ai-usage/releases/<version>/` 配下の公証済みDMGをHTTPSで取得する。
 - statusLine の生入力ログは既定で無効。`AIUSAGE_DEBUG=1` を明示した場合だけ
   `~/Library/Application Support/AIUsage/statusline-raw.log` に保存するため、デバッグ後は
   環境変数とログを削除する。
@@ -156,22 +156,22 @@ rm -rf ~/Library/Application\ Support/AIUsage
 
 正規の紹介ページは [moritouch.com/ai-usage](https://moritouch.com/ai-usage)、Sparkle feedは
 `https://moritouch.com/ai-usage/appcast.xml`。どちらもmoritouchのCloudflare配信を正本とし、
-このリポジトリからGitHub Pagesは配信しない。署名・公証済みDMGと同名の`.sha256`だけを
-GitHub Releasesへ置き、DMGをCloudflare側へ複製しない。紹介ページは最新の公証済みDMGへの
-直接ダウンロードと、GitHub repositoryへの導線を提供する。
+このリポジトリからGitHub Pagesは配信しない。署名・公証済みDMG、同名の`.sha256`、署名済み
+appcastをprofile WorkerのStatic Assetsへ固定version pathで配置する。紹介ページは最新の
+公証済みDMGとSHA-256への直接導線を提供し、非公開repositoryへはリンクしない。
 
-- [GitHub repository](https://github.com/moritouch/ai-usage) — ソース、Issue、Release
-- [.github/workflows/release.yml](.github/workflows/release.yml) — 既存Draftと公開assetを読み取り検査
-- [SECURITY.md](SECURITY.md) — 非公開の脆弱性報告と、送ってはいけない診断情報
+- [.github/workflows/release.yml](.github/workflows/release.yml) — 非公開Draftと内部assetを読み取り検査
+- [SECURITY.md](SECURITY.md) — 送ってはいけない診断情報と一般配布前の窓口要件
 
-Releaseの公開は自動化せず、別担当者がDraft、固定tag、DMG、SHA-256、公証結果を確認してから
-手動で行う。公開済みimmutable Releaseとローカル成果物を照合したあとにappcastを生成し、
-moritouchのprofile repositoryからCloudflareへdeployする。
+非公開GitHub Releaseの確定は自動化せず、別担当者がDraft、固定tag、DMG、SHA-256、公証結果を
+確認してから手動で行う。確定済みimmutable Releaseとローカル成果物を照合したあとに、
+Workers配信用assetとappcastを生成し、moritouchのprofile repositoryからCloudflareへdeployする。
 
 ## ライセンス
 
-ソースコードは[MIT License](LICENSE)で公開する。第三者の名称・商標や、同梱する依存関係にはそれぞれの
-権利・ライセンスが適用される。
+本ソフトウェアは[MIT License](LICENSE)で提供する。第三者の名称・商標や、同梱する依存関係には
+それぞれの権利・ライセンスが適用される。repositoryの公開範囲とは別に、配布物へLICENSEと
+Third-Party Noticesを同梱する。
 
 ## 制約
 
