@@ -12,8 +12,11 @@ on:
         required: true
         type: string
 
+# GitHub exposes draft releases only to tokens with push access. This job never checks out
+# repository code and every GitHub API request below is read-only; publishing remains a
+# separate human action in the Releases UI.
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: github-release-draft-${{ inputs.tag }}

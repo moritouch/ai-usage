@@ -160,7 +160,7 @@ rm -rf ~/Library/Application\ Support/AIUsage
 appcastをprofile WorkerのStatic Assetsへ固定version pathで配置する。紹介ページは最新の
 公証済みDMGとSHA-256への直接導線を提供し、非公開repositoryへはリンクしない。
 
-- [.github/workflows/release.yml](.github/workflows/release.yml) — 非公開Draftと内部assetを読み取り検査
+- [.github/workflows/release.yml](.github/workflows/release.yml) — 非公開Draftと内部assetを、checkoutなし・read-only APIで検査
 - [SECURITY.md](SECURITY.md) — 送ってはいけない診断情報と一般配布前の窓口要件
 
 非公開GitHub Releaseの確定は自動化せず、別担当者がDraft、固定tag、DMG、SHA-256、公証結果を

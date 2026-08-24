@@ -168,7 +168,8 @@ repository URLや個人アカウント名をファイルへ埋め込まず、実
 
 Apple署名・公証の正本は管理下Macで実行する`./scripts/release.sh`である。Developer ID秘密鍵、`.p8`、
 App用パスワード、notary profileをGitHub Actionsのrepository/environment secretへ登録しない。
-`release.yml`は`workflow_dispatch`だけを受け付け、read-onlyの`GITHUB_TOKEN`で既存Draftを検査する。
+`release.yml`は`workflow_dispatch`だけを受け付ける。GitHubがDraft Releaseをpush権限のあるtokenにだけ
+公開するため、一時tokenには`contents: write`が必要だが、workflow内のAPI requestはGETだけに限定する。
 PR codeをcheckout・実行せず、Draftの作成、asset upload、Publish、Apple署名・公証は一切行わない。
 
 ### 初回のGitHub設定
@@ -178,7 +179,8 @@ PR codeをcheckout・実行せず、Draftの作成、asset upload、Publish、Ap
    tagを再利用せず、CI・annotated tag・別担当者の承認を必須にする。
 3. Repository SettingsのReleasesで**release immutability**を有効にする。これは有効化後にPublishする
    Releaseだけへ適用されるため、最初のPublish前に設定する。
-4. ActionsへApple関連secretを作らない。workflow-level permissionは`contents: read`のままにする。
+4. ActionsへApple関連secretを作らない。Draft閲覧のためworkflow-level permissionは`contents: write`とするが、
+   repositoryをcheckoutせず、GitHub APIはread-only requestだけに限定する。
 5. 非公開GitHub Releaseの最終Publishは、署名担当者とは別の承認者がGitHub UIから手動で行う。
 6. GitHub Pagesを過去に公開していた場合はSettings > Pagesからunpublishし、Cloudflareの紹介ページと
    appcastだけを正規配信面にする。
