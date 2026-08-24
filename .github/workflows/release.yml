@@ -124,14 +124,11 @@ jobs:
           [[ "$dmg_asset_id" =~ ^[0-9]+$ && "$checksum_asset_id" =~ ^[0-9]+$ ]] \
             || fail "The release asset identifiers are invalid."
 
-          gh api \
-            -H 'Accept: application/octet-stream' \
-            "repos/$REPOSITORY/releases/assets/$dmg_asset_id" \
-            >"$asset_dir/$dmg_name"
-          gh api \
-            -H 'Accept: application/octet-stream' \
-            "repos/$REPOSITORY/releases/assets/$checksum_asset_id" \
-            >"$asset_dir/$checksum_name"
+          gh release download "$INPUT_TAG" \
+            --repo "$REPOSITORY" \
+            --dir "$asset_dir" \
+            --pattern "$dmg_name" \
+            --pattern "$checksum_name"
 
           entry_count=$(find "$asset_dir" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')
           [[ "$entry_count" == "2" ]] \
