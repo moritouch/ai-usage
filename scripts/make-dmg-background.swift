@@ -191,8 +191,8 @@ private let steps = [
     Step(
         number: "2",
         title: "自動確認  /  Automatic",
-        japanese: "AIツールを自動検出。Claude CodeのKeychain確認は許可",
-        english: "AI tools are detected automatically. Allow Claude Code Keychain access if prompted."
+        japanese: "AIツールを自動検出。継続利用はKeychainで「常に許可」",
+        english: "AI tools are detected. Choose Always Allow for ongoing access."
     ),
     Step(
         number: "3",
