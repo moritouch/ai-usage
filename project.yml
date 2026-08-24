@@ -27,8 +27,8 @@ settings:
     DEVELOPMENT_TEAM: WTKUV8PPM7
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.10"
-    CURRENT_PROJECT_VERSION: "12"
+    MARKETING_VERSION: "0.1.11"
+    CURRENT_PROJECT_VERSION: "13"
     ENABLE_HARDENED_RUNTIME: YES
 
 targets:
@@ -119,6 +119,8 @@ targets:
       - Shared/UsageModels.swift
       - Shared/PlanLabel.swift
       - Shared/CodexCollector.swift
+      - Shared/ClaudeKeychain.swift
+      - Shared/ClaudeOAuthRefresher.swift
       - Shared/SnapshotStore.swift
       - Shared/AppLanguage.swift
       - Shared/en.lproj/Localizable.strings

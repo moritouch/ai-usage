@@ -76,6 +76,8 @@ enum L10n {
             key = "note.claude.lastResponse"
         case "Claude credentials are unavailable; sign in to Claude Code or allow Keychain access":
             key = "note.claude.credentialsUnavailable"
+        case "Claude sign-in expired and could not be refreshed; sign in to Claude Code again, then check again":
+            key = "note.claude.signInExpired"
         case "Claude credentials were rejected; sign in to Claude Code again":
             key = "note.claude.credentialsRejected"
         case "Claude usage API is rate-limited; try again later":

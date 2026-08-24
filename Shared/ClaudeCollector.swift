@@ -8,8 +8,8 @@ import Foundation
 ///  2. statusLine フックが書いた claude.json。ターミナル版でしか発火しないが、
 ///     通信も Keychain も使わない予備経路。
 enum ClaudeCollector {
-    static func collect() async -> AgentUsage {
-        switch await ClaudeUsageAPI.shared.fetch() {
+    static func collect(force: Bool = false) async -> AgentUsage {
+        switch await ClaudeUsageAPI.shared.fetch(force: force) {
         case let .result(live):
             return fromAPI(live)
         case let .unavailable(reason):
@@ -41,7 +41,9 @@ enum ClaudeCollector {
             id: "claude-code", name: "Claude Code", plan: PlanLabel.normalize(result.plan),
             windows: windows, observedAt: result.observedAt,
             source: "usage API", status: result.isStale ? .stale : .ok,
-            note: result.isStale ? "Showing the last successful API response" : nil
+            note: result.isStale
+                ? failureNote(result.failureReason)
+                : nil
         )
     }
 
@@ -98,10 +100,14 @@ enum ClaudeCollector {
         )
     }
 
-    private static func failureNote(_ reason: ClaudeUsageAPI.FailureReason) -> String {
+    private static func failureNote(_ reason: ClaudeUsageAPI.FailureReason?) -> String {
         switch reason {
+        case nil:
+            return "Showing the last successful API response"
         case .credentialUnavailable:
             return "Claude credentials are unavailable; sign in to Claude Code or allow Keychain access"
+        case .credentialExpired:
+            return "Claude sign-in expired and could not be refreshed; sign in to Claude Code again, then check again"
         case .unauthorized:
             return "Claude credentials were rejected; sign in to Claude Code again"
         case .rateLimited:

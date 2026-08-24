@@ -29,10 +29,11 @@ struct UsagePopoverView: View {
         }
         let gaps = CGFloat(max(0, visibleAgents.count - 1)) * 8
         let storageNotice: CGFloat = model.storageError == nil ? 0 : 44
+        let signInNotices = CGFloat(visibleAgents.filter(\.needsClaudeSignIn).count) * 25
         // Font metrics can differ by a few points from the compact row estimate.
         // Leave per-card room so a fully visible list does not retain a tiny scroll range.
         let fittingAllowance = CGFloat(visibleAgents.count) * 8
-        return min(460, rows + gaps + storageNotice + 24 + fittingAllowance)
+        return min(460, rows + gaps + storageNotice + signInNotices + 24 + fittingAllowance)
     }
 
     var body: some View {
@@ -155,7 +156,7 @@ struct UsagePopoverView: View {
                 .foregroundStyle(.secondary)
             Spacer()
             Button {
-                model.refresh()
+                model.refresh(force: true)
             } label: {
                 Image(systemName: "arrow.clockwise")
             }
@@ -364,7 +365,30 @@ struct AgentRow: View {
                     WindowBar(window: window, language: language)
                 }
             }
+
+            if agent.needsClaudeSignIn {
+                Button(action: showStaleHelp) {
+                    Label(
+                        L10n.text("popover.claudeSignIn", language: language),
+                        systemImage: "person.badge.key"
+                    )
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.orange)
+                }
+                .buttonStyle(.plain)
+                .help(
+                    L10n.agentNote(agent.note, language: language)
+                        ?? L10n.text("popover.stale.help", language: language)
+                )
+            }
         }
+    }
+}
+
+private extension AgentUsage {
+    var needsClaudeSignIn: Bool {
+        note == "Claude sign-in expired and could not be refreshed; sign in to Claude Code again, then check again"
+            || note == "Claude credentials were rejected; sign in to Claude Code again"
     }
 }
 

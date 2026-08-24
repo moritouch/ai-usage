@@ -1,9 +1,9 @@
 import Foundation
 
 enum UsageCollector {
-    static func collectAll(order: [String] = []) async -> UsageSnapshot {
+    static func collectAll(order: [String] = [], force: Bool = false) async -> UsageSnapshot {
         var agents = [
-            await ClaudeCollector.collect(),
+            await ClaudeCollector.collect(force: force),
             CodexCollector.collect(),
             GrokCollector.collect(),
         ]

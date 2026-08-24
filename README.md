@@ -21,6 +21,11 @@
 `claude-code/<version>` にしないと厳しい 429 バケットに
 落ちるので、実際に動いている Claude Code のバージョンを転写している。
 
+access tokenは有効期限の5分前から、Claude Codeと同じOAuth token endpointで自動更新する。
+refresh tokenが回転した場合は、Claude Codeと共用する二重lockを取得し、未知fieldを残したまま
+同じKeychain項目へ書き戻す。書込可否を先に確認し、取得時のaccess / refresh tokenが一致する
+場合だけ更新するため、Claude Code側の同時更新を上書きしない。
+
 この経路だけが能動的に取りに行けるので、Claude Code が起動していなくても値が更新される。
 予備として statusLine 経由の取得も残してある（`scripts/claude-statusline.sh`。ターミナル版
 でのみ発火し、通信も Keychain も使わない）。
@@ -72,9 +77,11 @@ Claude Code の API は 180 秒キャッシュを挟むので、60 秒ごとの�
   User-Agent のバージョン判定用に `~/.claude/projects/**/*.jsonl`、Claude Code の
   Keychain 項目 `Claude Code-credentials` を読む。statusLine を導入した場合は
   `~/Library/Application Support/AIUsage/claude.json` も読む。
-- 利用状況の取得で外部通信を行うのは Claude Code だけで、Keychain から読んだ OAuth トークンを
-  Anthropic の `https://api.anthropic.com/api/oauth/usage` へ送る。トークンをアプリの
-  snapshot、設定、ログへ保存しない。Codex と Grok の取得はローカルファイルの読み取りだけ。
+- 利用状況の取得で外部通信を行うのは Claude Code だけ。Keychainから読んだaccess tokenを
+  Anthropicの `https://api.anthropic.com/api/oauth/usage` へ送る。有効期限の5分前以降は
+  refresh tokenも `https://platform.claude.com/v1/oauth/token` へ送信し、回転後の認証情報を
+  Claude Codeと同じKeychain項目へ書き戻す。トークンをアプリのsnapshot、設定、ログへは
+  保存しない。Codex と Grok の取得はローカルファイルの読み取りだけ。
 - アップデート確認を有効にした場合、Sparkleが
   `https://moritouch.com/ai-usage/appcast.xml` を確認する。更新を実行すると、appcastに記載された
   `https://moritouch.com/ai-usage/releases/v<version>/` 配下の公証済みDMGをHTTPSで取得する。
@@ -181,6 +188,7 @@ Third-Party Noticesを同梱する。
 - Grok の `creditUsagePercent` は 0 のときフィールドごと省略される。欠落は 0 として扱っている。
 - プラン名は内部識別子で来ることがあるため `Shared/PlanLabel.swift` で表記を揃えている。
   等級（`prolite`、`max_5x` など）は表に出さず `Pro` / `Max` に寄せる。
-- Claude Code のトークンが期限切れの場合は取得できない。Claude Code 側で再ログインすると直る。
+- Claude Codeのaccess tokenは期限前に自動更新する。refresh tokenの失効、Keychainの拒否、
+  書戻し不能などで安全に更新できない場合はStaleとして再ログイン案内を表示する。
 - Claude Code の OAuth usage API は公開された安定契約を確認できていない実験的な依存先。
   Claude Code 側の変更により、予告なく取得できなくなる可能性がある。

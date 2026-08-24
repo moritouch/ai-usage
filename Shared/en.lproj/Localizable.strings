@@ -41,6 +41,7 @@
 "popover.agentUsage.format" = "%@ usage";
 "popover.stale.help" = "Show how to refresh this data";
 "popover.stale.accessibility" = "Stale usage data. Show troubleshooting.";
+"popover.claudeSignIn" = "Sign in to Claude Code";
 "popover.moveUp" = "Move up";
 "popover.moveDown" = "Move down";
 "popover.reorder.help" = "Drag or use this menu to reorder";
@@ -91,7 +92,7 @@
 "help.checkedExplanation" = "“Last checked” is when AI Usage attempted a refresh. A recent check can remain stale if no new valid values were obtained.";
 "help.steps" = "What to try";
 "help.claude.title" = "Claude Code";
-"help.claude.body" = "Check your network connection, Claude Code sign-in, and Keychain permission. If the source is the statusLine hook, complete a normal response in terminal Claude Code. Wait before checking again if rate-limited; repeated checks do not bypass caching or backoff.";
+"help.claude.body" = "AI Usage refreshes Claude credentials automatically near expiry. If it reports that refresh failed, sign in to Claude Code again, then choose Check Again. Also check your network and Keychain permission. For the statusLine source, complete a normal response in terminal Claude Code. Wait if rate-limited.";
 "help.codex.title" = "Codex";
 "help.codex.body" = "Complete a normal Codex response, then check again. Checking again does not update the local session log by itself.";
 "help.grok.title" = "Grok";
@@ -129,6 +130,7 @@
 "note.grok.runOnce" = "Run Grok once to populate its billing log";
 "note.claude.lastResponse" = "Showing the last successful API response";
 "note.claude.credentialsUnavailable" = "Claude credentials are unavailable; sign in to Claude Code or allow Keychain access";
+"note.claude.signInExpired" = "Your Claude Code sign-in expired and could not be refreshed. Sign in to Claude Code again, then choose Check Again.";
 "note.claude.credentialsRejected" = "Claude credentials were rejected; sign in to Claude Code again";
 "note.claude.rateLimited" = "Claude usage API is rate-limited; try again later";
 "note.claude.unreachable" = "Claude usage API could not be reached";

@@ -30,10 +30,13 @@ actor ClaudeUsageAPI {
         let plan: String?
         /// 最後の通信が失敗した、または実測から 6 時間以上経っている。
         let isStale: Bool
+        /// キャッシュをStale表示している場合の直近失敗理由。
+        let failureReason: FailureReason?
     }
 
     enum FailureReason: Sendable {
         case credentialUnavailable
+        case credentialExpired
         case unauthorized
         case rateLimited
         case networkOrServer
@@ -65,7 +68,10 @@ actor ClaudeUsageAPI {
     private enum AttemptOutcome: Sendable {
         case success(Payload, plan: String?)
         case rateLimited(retryAt: Date?)
+        case credentialUnavailable
+        case credentialExpired
         case unauthorized
+        case forbidden
         case failed
     }
 
@@ -76,7 +82,7 @@ actor ClaudeUsageAPI {
     private var inFlight: (id: UUID, task: Task<AttemptOutcome, Never>)?
 
     /// 直近の取得結果。通信できなければキャッシュ、無ければ失敗理由を返す。
-    func fetch() async -> FetchResponse {
+    func fetch(force: Bool = false) async -> FetchResponse {
         let now = Date()
 
         // Actor は await 中に再入されるため、進行中の通信を明示的に共有する。
@@ -84,32 +90,23 @@ actor ClaudeUsageAPI {
             return await completeAttempt(id: inFlight.id, task: inFlight.task)
         }
 
-        if let cached {
+        if !force, let cached {
             let age = now.timeIntervalSince(cached.at)
             if age.isFinite, age >= 0, age < Self.minimumInterval {
-                return cachedResponse(now: now, forceStale: false)
+                return cachedResponse(now: now, forceStale: lastFailure != nil)
             }
         }
-        if let nextAttemptAt, now < nextAttemptAt {
+        let providerBackoffMustBeHonored: Bool
+        if case .rateLimited? = lastFailure { providerBackoffMustBeHonored = true }
+        else { providerBackoffMustBeHonored = false }
+        if let nextAttemptAt, now < nextAttemptAt,
+           !force || providerBackoffMustBeHonored {
             return cachedResponse(now: now, forceStale: true)
         }
-
-        guard let credential = ClaudeKeychain.credential() else {
-            recordFailure(now: now, reason: .credentialUnavailable)
-            return cachedResponse(now: now, forceStale: true)
-        }
-
-        var request = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/usage")!)
-        request.setValue("Bearer \(credential.accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
-        request.setValue("claude-code/\(ClaudeKeychain.installedVersion())",
-                         forHTTPHeaderField: "User-Agent")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 15
 
         let id = UUID()
         let task = Task {
-            await Self.perform(request, plan: credential.subscriptionType)
+            await Self.prepareCredentialAndPerform()
         }
         inFlight = (id, task)
         return await completeAttempt(id: id, task: task)
@@ -141,7 +138,18 @@ actor ClaudeUsageAPI {
             nextAttemptAt = max(retryAt ?? now.addingTimeInterval(600), floor)
             lastFailure = .rateLimited
 
+        case .credentialUnavailable:
+            recordFailure(now: now, reason: .credentialUnavailable)
+
+        case .credentialExpired:
+            recordFailure(now: now, reason: .credentialExpired)
+
         case .unauthorized:
+            consecutiveFailures += 1
+            nextAttemptAt = now.addingTimeInterval(15 * 60)
+            lastFailure = .unauthorized
+
+        case .forbidden:
             consecutiveFailures += 1
             nextAttemptAt = now.addingTimeInterval(15 * 60)
             lastFailure = .unauthorized
@@ -171,8 +179,79 @@ actor ClaudeUsageAPI {
             payload: cached.payload,
             observedAt: cached.at,
             plan: cached.plan,
-            isStale: forceStale || !age.isFinite || age < 0 || age > Self.staleInterval
+            isStale: forceStale || !age.isFinite || age < 0 || age > Self.staleInterval,
+            failureReason: forceStale ? lastFailure : nil
         ))
+    }
+
+    private static func prepareCredentialAndPerform() async -> AttemptOutcome {
+        let credential: ClaudeKeychain.OAuthCredential
+        switch ClaudeKeychain.credentialState() {
+        case let .valid(current):
+            credential = current
+
+        case let .refreshable(expired):
+            switch await ClaudeOAuthRefresher.refresh(expired) {
+            case let .credential(refreshed):
+                credential = refreshed
+            case let .rateLimited(retryAt):
+                return .rateLimited(retryAt: retryAt)
+            case .unauthorized:
+                return .credentialExpired
+            case .keychainUnavailable:
+                return .credentialUnavailable
+            case .temporarilyUnavailable:
+                return .failed
+            case .networkOrServer:
+                return .failed
+            }
+
+        case let .unavailable(failure):
+            if case .expired = failure { return .credentialExpired }
+            return .credentialUnavailable
+        }
+
+        let first = await perform(
+            usageRequest(for: credential),
+            plan: credential.subscriptionType
+        )
+        guard case .unauthorized = first, credential.refreshToken != nil else {
+            return first
+        }
+
+        // 401時はKeychainを再読込し、兄弟更新がなければ強制refreshして1回だけ再試行する。
+        switch await ClaudeOAuthRefresher.refresh(credential, force: true) {
+        case let .credential(refreshed):
+            return await perform(
+                usageRequest(for: refreshed),
+                plan: refreshed.subscriptionType
+            )
+        case let .rateLimited(retryAt):
+            return .rateLimited(retryAt: retryAt)
+        case .unauthorized:
+            return .credentialExpired
+        case .keychainUnavailable:
+            return .credentialUnavailable
+        case .temporarilyUnavailable:
+            return .failed
+        case .networkOrServer:
+            return .failed
+        }
+    }
+
+    private static func usageRequest(
+        for credential: ClaudeKeychain.OAuthCredential
+    ) -> URLRequest {
+        var request = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/usage")!)
+        request.setValue("Bearer \(credential.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
+        request.setValue(
+            "claude-code/\(ClaudeKeychain.installedVersion())",
+            forHTTPHeaderField: "User-Agent"
+        )
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 15
+        return request
     }
 
     private static func perform(_ request: URLRequest, plan: String?) async -> AttemptOutcome {
@@ -184,7 +263,8 @@ actor ClaudeUsageAPI {
             if status == 429 {
                 return .rateLimited(retryAt: retryDate(from: http, now: Date()))
             }
-            if status == 401 || status == 403 { return .unauthorized }
+            if status == 401 { return .unauthorized }
+            if status == 403 { return .forbidden }
             guard status == 200, data.count <= maximumResponseBytes else { return .failed }
 
             let decoded = try JSONDecoder().decode(Payload.self, from: data)

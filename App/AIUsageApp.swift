@@ -357,7 +357,7 @@ final class UsageModel: ObservableObject {
         let order = agentOrder
         refreshTask = Task { [weak self] in
             let fresh = await Task.detached(priority: .utility) {
-                await UsageCollector.collectAll(order: order)
+                await UsageCollector.collectAll(order: order, force: force)
             }.value
             guard !Task.isCancelled, let self,
                   generation == self.refreshGeneration

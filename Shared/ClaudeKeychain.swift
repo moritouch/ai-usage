@@ -10,56 +10,294 @@ import Security
 enum ClaudeKeychain {
     struct OAuthCredential: Sendable {
         let accessToken: String
+        let refreshToken: String?
+        let expiresAt: Date?
+        let scopes: [String]
         let subscriptionType: String?
+        let clientID: String?
+
+        /// 同じservice名の別accountを誤更新しないためのKeychain item識別子。
+        fileprivate let persistentRef: Data
+    }
+
+    enum ReadFailure: Sendable {
+        case notFound
+        case accessDenied
+        case malformed
+        case expired
+    }
+
+    enum CredentialState: Sendable {
+        case valid(OAuthCredential)
+        case refreshable(OAuthCredential)
+        case unavailable(ReadFailure)
+    }
+
+    enum SaveResult: Sendable {
+        case saved
+        case changed(CredentialState)
+        case failed
     }
 
     private struct Credentials: Decodable {
         struct OAuth: Decodable {
             let accessToken: String
+            let refreshToken: String?
             let expiresAt: Double?
+            let scopes: [String]?
             let subscriptionType: String?
+            let clientId: String?
         }
         let claudeAiOauth: OAuth?
     }
 
+    private struct KeychainItem {
+        let data: Data
+        let persistentRef: Data
+    }
+
     /// 契約プラン名（"max" など）。無い版もあるので任意項目として扱う。
     static func subscriptionType() -> String? {
-        credential()?.subscriptionType
+        switch credentialState() {
+        case let .valid(credential), let .refreshable(credential):
+            return credential.subscriptionType
+        case .unavailable:
+            return nil
+        }
     }
 
     static func accessToken() -> String? {
         credential()?.accessToken
     }
 
-    /// API 呼び出し 1 回につき Keychain を 1 回だけ読むためのスナップショット。
+    /// 有効なaccess tokenだけを返す互換API。
     static func credential() -> OAuthCredential? {
-        guard let oauth = readOAuth() else { return nil }
-        // expiresAt はミリ秒。期限切れならリフレッシュは Claude Code 側に任せ、ここでは諦める。
-        if let expiresAt = oauth.expiresAt {
-            guard expiresAt.isFinite else { return nil }
-            if Date(timeIntervalSince1970: expiresAt / 1_000) < Date() { return nil }
-        }
-        guard isSafeHeaderValue(oauth.accessToken), oauth.accessToken.count <= 16_384 else {
-            return nil
-        }
-        let subscription = oauth.subscriptionType.flatMap(sanitizedMetadata)
-        return OAuthCredential(accessToken: oauth.accessToken, subscriptionType: subscription)
+        guard case let .valid(credential) = credentialState() else { return nil }
+        return credential
     }
 
-    private static func readOAuth() -> Credentials.OAuth? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "Claude Code-credentials",
+    /// Keychainの読取失敗と、更新可能な期限切れを区別する。
+    /// Claude Codeと同様に期限の5分前からrefresh対象にする。
+    static func credentialState(
+        now: Date = Date(), refreshSkew: TimeInterval = 5 * 60
+    ) -> CredentialState {
+        let (status, item) = readRawItem()
+        guard status == errSecSuccess, let item else {
+            switch status {
+            case errSecItemNotFound:
+                return .unavailable(.notFound)
+            case errSecAuthFailed, errSecInteractionNotAllowed, errSecUserCanceled:
+                return .unavailable(.accessDenied)
+            default:
+                return .unavailable(.malformed)
+            }
+        }
+
+        guard let oauth = try? JSONDecoder().decode(Credentials.self, from: item.data).claudeAiOauth,
+              let credential = validatedCredential(oauth, persistentRef: item.persistentRef)
+        else { return .unavailable(.malformed) }
+
+        if let expiresAt = credential.expiresAt,
+           expiresAt <= now.addingTimeInterval(max(0, refreshSkew)) {
+            return credential.refreshToken == nil
+                ? .unavailable(.expired)
+                : .refreshable(credential)
+        }
+        return .valid(credential)
+    }
+
+    /// refresh tokenを回転させる前に、同じKeychain itemへ安全に書き戻せることを確認する。
+    /// 同じdataを書くだけなので、失敗時はOAuth refreshを開始しない。
+    static func prepareForRefresh(_ expected: OAuthCredential) -> Bool {
+        let (status, item) = readRawItem()
+        guard status == errSecSuccess, let item,
+              item.persistentRef == expected.persistentRef,
+              rawCredentialMatches(item.data, expected: expected)
+        else { return false }
+
+        return SecItemUpdate(
+            updateQuery(for: expected) as CFDictionary,
+            [kSecValueData as String: item.data] as CFDictionary
+        ) == errSecSuccess
+    }
+
+    /// Claude Codeのrefresh tokenは回転するため、access/refresh両方が読取時と一致する場合だけ
+    /// 未知fieldを残したままKeychainへ書き戻す。競合時は新しい兄弟書込みを採用する。
+    static func saveRefreshedCredential(
+        expected: OAuthCredential,
+        accessToken: String,
+        refreshToken: String,
+        expiresAt: Date,
+        scopes: [String]? = nil
+    ) -> SaveResult {
+        for attempt in 0..<3 {
+            let (status, item) = readRawItem()
+            guard status == errSecSuccess else {
+                if attempt < 2, shouldRetryReadFailure(status) {
+                    Thread.sleep(forTimeInterval: 0.05)
+                    continue
+                }
+                return .failed
+            }
+            guard let item else { return .failed }
+
+            guard item.persistentRef == expected.persistentRef,
+                  rawCredentialMatches(item.data, expected: expected)
+            else {
+                return .changed(credentialState())
+            }
+            guard let updated = updatedCredentialData(
+                item.data,
+                expectedAccessToken: expected.accessToken,
+                expectedRefreshToken: expected.refreshToken,
+                accessToken: accessToken,
+                refreshToken: refreshToken,
+                expiresAt: expiresAt,
+                scopes: scopes
+            ) else { return .failed }
+
+            let updateStatus = SecItemUpdate(
+                updateQuery(for: expected) as CFDictionary,
+                [kSecValueData as String: updated] as CFDictionary
+            )
+            if updateStatus == errSecSuccess { return .saved }
+            if [errSecAuthFailed, errSecInteractionNotAllowed, errSecUserCanceled]
+                .contains(updateStatus) {
+                return .failed
+            }
+            if attempt < 2 { Thread.sleep(forTimeInterval: 0.05) }
+        }
+        return .failed
+    }
+
+    /// 明示的な拒否・キャンセルや項目削除は再試行せず、確認dialogの連続表示を避ける。
+    static func shouldRetryReadFailure(_ status: OSStatus) -> Bool {
+        ![
+            errSecItemNotFound,
+            errSecAuthFailed,
+            errSecInteractionNotAllowed,
+            errSecUserCanceled,
+        ].contains(status)
+    }
+
+    /// JSON mergeの純粋部分。Keychainのsibling keysと将来fieldを消さない。
+    static func updatedCredentialData(
+        _ data: Data,
+        expectedAccessToken: String,
+        expectedRefreshToken: String?,
+        accessToken: String,
+        refreshToken: String,
+        expiresAt: Date,
+        scopes: [String]? = nil
+    ) -> Data? {
+        guard isSafeToken(accessToken), isSafeToken(refreshToken),
+              expiresAt.timeIntervalSince1970.isFinite,
+              expiresAt > Date(timeIntervalSince1970: 0),
+              var root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              var oauth = root["claudeAiOauth"] as? [String: Any],
+              oauth["accessToken"] as? String == expectedAccessToken,
+              oauth["refreshToken"] as? String == expectedRefreshToken
+        else { return nil }
+
+        oauth["accessToken"] = accessToken
+        oauth["refreshToken"] = refreshToken
+        oauth["expiresAt"] = expiresAt.timeIntervalSince1970 * 1_000
+        if let scopes {
+            oauth["scopes"] = scopes
+        }
+        root["claudeAiOauth"] = oauth
+        guard JSONSerialization.isValidJSONObject(root) else { return nil }
+        return try? JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
+    }
+
+    private static func rawCredentialMatches(
+        _ data: Data, expected: OAuthCredential
+    ) -> Bool {
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let oauth = root["claudeAiOauth"] as? [String: Any]
+        else { return false }
+        return oauth["accessToken"] as? String == expected.accessToken
+            && oauth["refreshToken"] as? String == expected.refreshToken
+            && oauth["clientId"] as? String == expected.clientID
+    }
+
+    private static func validatedCredential(
+        _ oauth: Credentials.OAuth,
+        persistentRef: Data
+    ) -> OAuthCredential? {
+        guard isSafeToken(oauth.accessToken) else { return nil }
+
+        let refreshToken: String?
+        if let raw = oauth.refreshToken {
+            guard isSafeToken(raw) else { return nil }
+            refreshToken = raw
+        } else {
+            refreshToken = nil
+        }
+
+        let expiresAt: Date?
+        if let raw = oauth.expiresAt {
+            guard raw.isFinite else { return nil }
+            let parsed = Date(timeIntervalSince1970: raw / 1_000)
+            guard parsed.timeIntervalSince1970.isFinite else { return nil }
+            expiresAt = parsed
+        } else {
+            expiresAt = nil
+        }
+
+        let scopes = (oauth.scopes ?? []).compactMap(sanitizedMetadata)
+        let subscription = oauth.subscriptionType.flatMap(sanitizedMetadata)
+        let clientID: String?
+        if let raw = oauth.clientId {
+            guard isSafeClientID(raw) else { return nil }
+            clientID = raw
+        } else {
+            clientID = nil
+        }
+        return OAuthCredential(
+            accessToken: oauth.accessToken,
+            refreshToken: refreshToken,
+            expiresAt: expiresAt,
+            scopes: scopes,
+            subscriptionType: subscription,
+            clientID: clientID,
+            persistentRef: persistentRef
+        )
+    }
+
+    private static func readRawItem() -> (OSStatus, KeychainItem?) {
+        let query = keychainQuery().merging([
             kSecReturnData as String: true,
+            kSecReturnPersistentRef as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
+        ]) { _, new in new }
 
         var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-              let data = item as? Data,
-              let credentials = try? JSONDecoder().decode(Credentials.self, from: data)
-        else { return nil }
-        return credentials.claudeAiOauth
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        guard status == errSecSuccess,
+              let values = item as? [String: Any],
+              let data = values[kSecValueData as String] as? Data,
+              let persistentRef = values[kSecValuePersistentRef as String] as? Data
+        else { return (status, nil) }
+        return (status, KeychainItem(data: data, persistentRef: persistentRef))
+    }
+
+    /// Claude Codeはserviceに加えてmacOS usernameをaccountへ保存する。
+    /// 同じservice名の別accountを読み取らないよう両方で選択する。
+    static func keychainQuery(accountName: String = NSUserName()) -> [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "Claude Code-credentials",
+            kSecAttrAccount as String: accountName,
+        ]
+    }
+
+    /// macOSではpersistent refをkSecMatchItemListへ渡して更新対象を1件に固定する。
+    private static func updateQuery(for credential: OAuthCredential) -> [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecMatchItemList as String: [credential.persistentRef],
+        ]
     }
 
     /// User-Agent 用。`claude-code/<version>` でないと厳しい 429 バケットに落ちるため、
@@ -128,8 +366,13 @@ enum ClaudeKeychain {
         }
     }
 
-    private static func isSafeHeaderValue(_ value: String) -> Bool {
-        guard !value.isEmpty else { return false }
+    private static func isSafeToken(_ value: String) -> Bool {
+        guard !value.isEmpty, value.utf8.count <= 16_384 else { return false }
+        return value.unicodeScalars.allSatisfy { (0x21...0x7E).contains($0.value) }
+    }
+
+    private static func isSafeClientID(_ value: String) -> Bool {
+        guard !value.isEmpty, value.utf8.count <= 256 else { return false }
         return value.unicodeScalars.allSatisfy { (0x21...0x7E).contains($0.value) }
     }
 
