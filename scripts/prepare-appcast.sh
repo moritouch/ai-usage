@@ -164,6 +164,40 @@ assert_cloudflare_asset_size() {
     || fail "Cloudflare Static Assetsの25 MiB未満制約を超えています: $path ($size bytes)"
 }
 
+set_release_archive_mtime() {
+  local published_at=$1
+  local archive_path=$2
+  local expected_epoch
+  local archive_birth_epoch
+  local archive_mtime_epoch
+
+  [[ "$published_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] \
+    || fail "GitHub ReleaseのpublishedAt形式が不正です: $published_at"
+  expected_epoch=$(/bin/date -j -u -f '%Y-%m-%dT%H:%M:%SZ' \
+    "$published_at" '+%s') \
+    || fail "Release公開日時を変換できません: $published_at"
+  TZ=UTC0 /usr/bin/touch -m -d "$published_at" "$archive_path" \
+    || fail "Release公開日時をarchiveへ設定できません: $archive_path"
+  archive_birth_epoch=$(stat -f '%B' "$archive_path") \
+    || fail "archiveの作成日時を取得できません: $archive_path"
+  archive_mtime_epoch=$(stat -f '%m' "$archive_path") \
+    || fail "archiveの更新日時を取得できません: $archive_path"
+  [ "$archive_birth_epoch" = "$expected_epoch" ] \
+    || fail "archiveの作成日時がRelease公開日時と一致しません: $archive_path"
+  [ "$archive_mtime_epoch" = "$expected_epoch" ] \
+    || fail "archiveの更新日時がRelease公開日時と一致しません: $archive_path"
+}
+
+copy_release_archive_for_appcast() {
+  local source_path=$1
+  local archive_path=$2
+  local published_at=$3
+
+  /bin/cp "$source_path" "$archive_path" \
+    || fail "appcast生成用archiveをコピーできません: $source_path"
+  set_release_archive_mtime "$published_at" "$archive_path"
+}
+
 stage_public_release_assets() {
   local target_dir="$PUBLIC_ASSETS_ROOT/$TAG"
   local entry_count
@@ -527,16 +561,9 @@ ARCHIVES_DIR="$WORK_DIR/archives"
 mkdir "$ARCHIVES_DIR"
 ARCHIVE_DMG="$ARCHIVES_DIR/$DMG_NAME"
 GENERATED_APPCAST="$ARCHIVES_DIR/appcast.xml"
-cp -p "$PUBLIC_DMG" "$ARCHIVE_DMG"
 
 PUBLISHED_AT=$(jq -er '.publishedAt' "$RELEASE_JSON")
-if [[ "$PUBLISHED_AT" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]; then
-  RELEASE_TOUCH_TIME=$(/bin/date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$PUBLISHED_AT" '+%Y%m%d%H%M.%S') \
-    || fail "Release公開日時を変換できません: $PUBLISHED_AT"
-  touch -t "$RELEASE_TOUCH_TIME" "$ARCHIVE_DMG"
-else
-  fail "GitHub ReleaseのpublishedAt形式が不正です: $PUBLISHED_AT"
-fi
+copy_release_archive_for_appcast "$PUBLIC_DMG" "$ARCHIVE_DMG" "$PUBLISHED_AT"
 
 EXISTING_APPCAST=""
 if [ -f "$OUTPUT" ]; then
@@ -569,13 +596,25 @@ python3 - \
   "$EXPECTED_DOWNLOAD_URL" \
   "$PRODUCT_URL" \
   "$PUBLIC_DMG_SIZE" \
+  "$PUBLISHED_AT" \
   >"$FEED_VALIDATION" <<'PY'
 import base64
 import collections
+import datetime
+import email.utils
 import sys
 import xml.etree.ElementTree as ET
 
-old_path, new_path, build, version, download_url, product_url, length = sys.argv[1:]
+(
+    old_path,
+    new_path,
+    build,
+    version,
+    download_url,
+    product_url,
+    length,
+    published_at,
+) = sys.argv[1:]
 sparkle = "http://www.andymatuschak.org/xml-namespaces/sparkle"
 
 
@@ -618,6 +657,22 @@ if len(matches) != 1:
     raise SystemExit(f"expected one current item, found {len(matches)}")
 
 current = matches[0]
+pub_date = current.findtext("pubDate", default="").strip()
+try:
+    expected_pub_date = datetime.datetime.strptime(
+        published_at, "%Y-%m-%dT%H:%M:%SZ"
+    ).replace(tzinfo=datetime.timezone.utc)
+    actual_pub_date = email.utils.parsedate_to_datetime(pub_date)
+except (TypeError, ValueError) as error:
+    raise SystemExit(f"invalid current item pubDate: {pub_date}: {error}") from error
+if actual_pub_date is None or actual_pub_date.tzinfo is None:
+    raise SystemExit(f"current item pubDate has no timezone: {pub_date}")
+if actual_pub_date.astimezone(datetime.timezone.utc) != expected_pub_date:
+    raise SystemExit(
+        f"current item pubDate does not match GitHub publishedAt: "
+        f"{pub_date} != {published_at}"
+    )
+
 link = current.findtext("link", default="").strip()
 if link != product_url:
     raise SystemExit(f"unexpected product link: {link}")
