@@ -163,6 +163,7 @@ version/build、Team IDがrelease記録と一致することをrelease operator�
 さらにFinderから最終DMGを通常どおり開き、アイコン表示、案内背景、`AI Usage.app`と`Applications`の
 位置、ドラッグ矢印、日英の初回設定案内が読めることを実画面で確認する。Finderを既存タブで開く設定や
 隠し項目表示は周囲の余白・項目を変えるため、DMGが指定する800×500の内容領域を基準に確認する。
+隠し項目表示が有効な場合も、背景素材の`.background.png`がこの内容領域へ現れないことを確認する。
 
 ## 公開GitHub Releaseで成果物を確定する
 

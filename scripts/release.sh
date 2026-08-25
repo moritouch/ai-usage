@@ -1179,19 +1179,30 @@ verify_dmg_contents() {
      = "$(shasum -a 256 "$DMG_BACKGROUND" | /usr/bin/awk '{print $1}')" ] \
     || { fail "DMG内の案内背景が生成物と一致しません"; return 1; }
 
-  if ! "$DMGBUILD_PYTHON" - "$MOUNT_DIR/.DS_Store" <<'PY'
+  if ! "$DMGBUILD_PYTHON" - "$MOUNT_DIR/.DS_Store" "$MOUNT_DIR" <<'PY'
+import os
+import stat
 import sys
 from ds_store import DSStore
 
 with DSStore.open(sys.argv[1], "r") as store:
     records = {(entry.filename, entry.code): entry.value for entry in store}
 
+mount_dir = sys.argv[2]
 bwsp = records.get((".", b"bwsp"), {})
 icvp = records.get((".", b"icvp"), {})
 expected_locations = {
     ("AI Usage.app", b"Iloc"): (180, 135),
     ("Applications", b"Iloc"): (620, 135),
+    (".background.png", b"Iloc"): (1200, 900),
 }
+expected_root_items = {
+    ".DS_Store",
+    ".background.png",
+    "AI Usage.app",
+    "Applications",
+}
+background_flags = os.stat(os.path.join(mount_dir, ".background.png")).st_flags
 valid = (
     records.get((".", b"icvl")) == b"icnv"
     and bwsp.get("WindowBounds") == "{{200, 200}, {800, 500}}"
@@ -1203,6 +1214,8 @@ valid = (
     and icvp.get("iconSize") == 96.0
     and icvp.get("textSize") == 14.0
     and all(records.get(key) == value for key, value in expected_locations.items())
+    and bool(background_flags & stat.UF_HIDDEN)
+    and set(os.listdir(mount_dir)) == expected_root_items
 )
 raise SystemExit(0 if valid else 1)
 PY

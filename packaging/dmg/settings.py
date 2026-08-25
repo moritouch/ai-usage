@@ -30,7 +30,12 @@ text_size = 14
 icon_size = 96
 show_icon_preview = False
 
+# Keep the Finder background out of the install surface even when users reveal
+# dotfiles. dmgbuild creates this file at the volume root.
+hide = [".background.png"]
+
 icon_locations = {
     app_name: (180, 135),
     "Applications": (620, 135),
+    ".background.png": (1200, 900),
 }
