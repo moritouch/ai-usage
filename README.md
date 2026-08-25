@@ -1,194 +1,143 @@
-# AI Usage
+[English](README.md) | [日本語](README.ja.md)
 
-各 AI エージェントの使用率とリセット時刻を、macOS のメニューバーとウィジェットで見るアプリ。
-ブラウザや各ツールの画面を開かずに、いま何割使ったかが分かる。
+<p align="center">
+  <img src="docs/app-icon.png" width="128" height="128" alt="AI Usage app icon">
+</p>
 
-## 何がどこから取れるか
+<h1 align="center">AI Usage</h1>
 
-`claude` / `codex` / `grok` / `gemini` / `cursor-agent` のいずれにも残量を出すサブコマンドは無い。
-代わりに、各ツールが持っている経路から取る。
+<p align="center"><strong>AI usage, at a glance.</strong></p>
 
-| エージェント | 取得元 | 取れる値 |
-|---|---|---|
-| **Claude Code** | OAuth usage API | 5 時間枠・週枠の使用率、リセット時刻、プラン |
-| **Codex** | `~/.codex/sessions/**/rollout-*.jsonl` | 週枠の使用率、リセット時刻、プラン |
-| **Grok** | `~/.grok/logs/unified.jsonl` | 週枠の使用率、期間終了時刻、契約種別 |
-| Gemini CLI / Cursor | — | 残量をローカルに出さないため未対応 |
+AI Usage is an independent macOS menu bar app and WidgetKit extension for checking usage windows and reset times without opening each provider's dashboard. It currently supports Claude Code, Codex, and Grok, with additional tools and features planned.
 
-**Claude Code** は `/usage` が叩くのと同じエンドポイント（`api.anthropic.com/api/oauth/usage`）を
-使う。トークンは Claude Code が Keychain に保存しているものを読むため、初回や再署名・
-再インストール後などに macOS の許可ダイアログが出ることがある。`User-Agent` を
-`claude-code/<version>` にしないと厳しい 429 バケットに
-落ちるので、実際に動いている Claude Code のバージョンを転写している。
+See the interface and installation guide on the [AI Usage product page](https://moritouch.com/ai-usage).
 
-access tokenは有効期限の5分前から、Claude Codeと同じOAuth token endpointで自動更新する。
-refresh tokenが回転した場合は、Claude Codeと共用する二重lockを取得し、未知fieldを残したまま
-同じKeychain項目へ書き戻す。書込可否を先に確認し、取得時のaccess / refresh tokenが一致する
-場合だけ更新するため、Claude Code側の同時更新を上書きしない。
+<p align="center">
+  <a href="https://moritouch.com/ai-usage">
+    <img src="https://moritouch.com/ai-usage/og-en.png" width="900" alt="AI Usage menu bar and usage overview">
+  </a>
+</p>
 
-この経路だけが能動的に取りに行けるので、Claude Code が起動していなくても値が更新される。
-予備として statusLine 経由の取得も残してある（`scripts/claude-statusline.sh`。ターミナル版
-でのみ発火し、通信も Keychain も使わない）。
+## Download
 
-**Codex** と **Grok** はログを読むだけで、API 呼び出しもトークン消費も発生しない。
-ただし受動的な経路なので、そのツールを動かした時にしか新しい値が出ない。
-表示中の値を現在値と確認できない場合は `Stale` バッジで知らせる。
-取得失敗、観測時刻の欠落・不正、最後の有効な観測から 6 時間以上の経過などが該当する。
-バッジまたはヘッダーのヘルプボタンを押すと、エージェント別の対処方法と再確認ボタンを開ける。
+**[Download the latest version for macOS](https://moritouch.com/ai-usage)**
 
-## 使い方
+AI Usage requires **macOS 14 Sonoma or later**. The product page always points to the current stable DMG, signed with Developer ID and notarized by Apple. [GitHub Releases](https://github.com/moritouch/ai-usage/releases) provides the release history and matching artifacts.
 
-- **メニューバー** — 常駐アイコンに、いちばん逼迫している枠の使用率が出る。クリックで一覧。
-- **ウィジェット** — デスクトップを右クリック >「ウィジェットを編集」>「AI Usage」。
-  小サイズは 5 時間枠のような短い窓を主役にし、中サイズはエージェントごとにまとめ、全体で最大 4 枠を並べる。
-  「ウィジェットを編集」で対象を選べるが、1 エージェントが複数の枠を使うことがある。
-- **並べ替え** — 一覧でカードをドラッグするか、カード右端の並べ替えメニューを使う。
-  先頭が見出しになる。
-  設定の「カードの順序」から自動判定（短い窓を優先）に戻せる。
-- **言語** — 設定の Language で日本語と English を切り替える。アプリ本体とウィジェットで共有される。
-- **アップデート** — 設定から自動確認の有効／無効を選び、「アップデートを確認…」でいつでも手動確認できる。
-- **Dock** — 歯車 >「General」>「Show in Dock」を入れると Dock にも出る。
-  アイコンを押すと独立ウィンドウが開く。
+AI Usage is distributed outside the Mac App Store. Apple notarization verifies the signed distribution against Apple's automated security checks; it is not an endorsement of the app's features or privacy design.
 
-表示は一貫して「使用量（used）」。バーの伸びと色（緑 → 黄 → 橙 → 赤）が同じ向きを指す。
+## Features
 
-## 構成
+- **Menu bar status** — See the most constrained usage window at a glance, then open the popover for all available windows and reset times.
+- **Desktop widgets** — Choose an agent for a small widget or view multiple usage windows in the medium widget.
+- **Freshness guidance** — A `Stale` badge explains when a displayed value cannot be confirmed as current and links to tool-specific recovery steps.
+- **Customizable display** — Show or hide agents, drag cards to reorder them, and optionally show the app in the Dock.
+- **Japanese and English** — The app and widgets share the selected language.
+- **Built-in updates** — Enable automatic checks or check manually from Settings.
 
-```
-App/       メニューバー常駐アプリ（非サンドボックス。~/.codex 等と Keychain を読む）
-Widget/    WidgetKit 拡張（サンドボックス必須。App Group 経由で受け取るだけ）
-Shared/    モデル・収集ロジック・保存先（両ターゲットで共有）
-scripts/   statusLine シム、アイコン生成、リリース
-```
+Usage is displayed consistently as **used percentage**: fuller bars and warmer colors indicate higher usage.
 
-本体が 60 秒ごとに収集し、App Group コンテナ
-`~/Library/Group Containers/WTKUV8PPM7.jp.co.forestx.aiusage/snapshot.json` に書く。
-ウィジェットはそれを読んで描画し、10 分後のタイムライン更新を要求する。
-更新時刻は WidgetKit がシステム状況に応じて決めるため、10 分は保証値ではない。
-Claude Code の API は 180 秒キャッシュを挟むので、60 秒ごとの収集でも通信は 3 分に 1 回。
+## Supported tools and data sources
 
-ウィジェット拡張は macOS の要件でサンドボックスが必須で、その中からは `~/.codex` を読めない。
-そのため収集は本体だけが行い、拡張は受け取り専用にしている。
+AI Usage uses the data source currently exposed by each tool; there is no common command that reports the remaining allowance for all of them.
 
-## プライバシーと通信
+| Tool | Data source | Data shown | Usage-collection network access |
+| --- | --- | --- | --- |
+| **Claude Code** | Claude Code credentials in macOS Keychain and Anthropic's OAuth usage endpoint | Available five-hour, weekly, and model-specific windows, reset times, and plan label | Yes |
+| **Codex** | `~/.codex/sessions/**/rollout-*.jsonl` | Available primary and secondary windows, reset times, and plan label | No; local file reading only |
+| **Grok** | `~/.grok/logs/unified.jsonl` | Current billing-period usage, period end, and subscription label | No; local file reading only |
 
-- 本体はローカルの利用状況を集めるため非サンドボックスで動く。主に
-  `~/.codex/sessions/**/rollout-*.jsonl`、`~/.grok/logs/unified.jsonl`、
-  User-Agent のバージョン判定用に `~/.claude/projects/**/*.jsonl`、Claude Code の
-  Keychain 項目 `Claude Code-credentials` を読む。statusLine を導入した場合は
-  `~/Library/Application Support/AIUsage/claude.json` も読む。
-- 利用状況の取得で外部通信を行うのは Claude Code だけ。Keychainから読んだaccess tokenを
-  Anthropicの `https://api.anthropic.com/api/oauth/usage` へ送る。有効期限の5分前以降は
-  refresh tokenも `https://platform.claude.com/v1/oauth/token` へ送信し、回転後の認証情報を
-  Claude Codeと同じKeychain項目へ書き戻す。トークンをアプリのsnapshot、設定、ログへは
-  保存しない。Codex と Grok の取得はローカルファイルの読み取りだけ。
-- アップデート確認を有効にした場合、Sparkleが
-  `https://moritouch.com/ai-usage/appcast.xml` を確認する。更新を実行すると、appcastに記載された
-  `https://moritouch.com/ai-usage/releases/v<version>/` 配下の公証済みDMGをHTTPSで取得する。
-- statusLine の生入力ログは既定で無効。`AIUSAGE_DEBUG=1` を明示した場合だけ
-  `~/Library/Application Support/AIUsage/statusline-raw.log` に保存するため、デバッグ後は
-  環境変数とログを削除する。
+Available windows and labels depend on the tool and plan. Codex and Grok are passive data sources: their values change only after the corresponding tool writes a newer local log entry. AI Usage does not make Codex or Grok API calls and does not consume model tokens while collecting their usage.
 
-## インストール（配布版）
+Gemini CLI and Cursor are not currently supported because the required allowance data is not available in the local sources inspected by this project.
 
-macOS 14 Sonoma 以降が必要。
+## Installation
 
-通常利用には、[正規の紹介ページ](https://moritouch.com/ai-usage)から取得した**公証済み DMG**を使う。DMG を開き、
-`AI Usage.app` を同梱の `Applications` ショートカットへドラッグしてから起動する。
-DMG内にはドラッグ先と、初回起動後の設定を日英で表示する。
+1. Sign in to Claude Code if you want to monitor it. Complete at least one normal response in Codex or Grok so each tool can create or update its local usage log.
+2. Download the notarized DMG from the [product page](https://moritouch.com/ai-usage), open it, and drag **AI Usage.app** to the **Applications** shortcut.
+3. Eject the DMG and launch AI Usage from Applications.
+4. macOS may ask for access to Claude Code's Keychain item. After confirming that you installed the notarized release and its expected signer, choose **Always Allow** if you want Claude usage to refresh without repeated prompts. Declining does not prevent local Codex and Grok collection.
+5. Open Settings to select Japanese or English, choose visible agents, and adjust their order.
+6. To add a widget, right-click the desktop, choose **Edit Widgets**, and add AI Usage. Keep the main app running so it can collect and publish fresh display data to the widget.
 
-初回は次を確認する。
+The DMG includes a visual drag-to-Applications guide and a bilingual first-launch checklist.
 
-1. Claude Codeへログインする。CodexとGrokは少なくとも1回通常の応答を完了し、
-   ローカルログを作成・更新する。
-2. AI Usageを起動する。使用量は自動で確認される。Claude CodeのKeychain確認が表示された場合は、
-   公証済み配布版と署名者を確認し、「常に許可」を選ぶと継続更新できる。
-3. 設定の「言語 / Language」で日本語またはEnglishを選び、エージェントの表示／非表示を選ぶ。
-   カードは使用量一覧でドラッグするか、各カードの並べ替えメニューで順序を変える。
-4. 必要ならmacOSの「ウィジェットを編集」からAI Usageを追加し、表示するエージェントを選ぶ。
-   値を更新するにはAI Usage本体を起動しておく。
+## Privacy and permissions
 
-`0.1.10`（build `12`）はSparkleを含む最初の公開bootstrap版のため、それ以前の版からは
-最新の公証済みDMGを入手し、実行中のAI Usageを終了して手動で置き換える必要がある。
-`0.1.10`以降では設定から自動確認を有効にするか、「アップデートを確認…」を押して更新できる。
-実更新の最初のE2E検証は、`0.1.10`をインストールした状態から`0.1.11`へ更新して行う。
-配布物の作成・検証方法は [docs/RELEASE.md](docs/RELEASE.md) を参照。
+The main app is intentionally not sandboxed because it must read usage metadata from local tool files and, for Claude Code, credentials from macOS Keychain. The widget is sandboxed and receives only a minimal display snapshot through the app's App Group container.
 
-## 開発用ビルドと再起動
+The main app checks its sources every 60 seconds. Claude usage requests have a minimum interval of 180 seconds. The widget asks WidgetKit for a refresh around ten minutes later, but macOS ultimately decides when that refresh occurs.
 
-ソースから動かす場合は Xcode と XcodeGen が必要。AI Usage を終了してから次を実行する。
+For usage collection:
+
+- **Codex and Grok stay local.** AI Usage reads the relevant usage or billing entries from their local JSONL files. It does not upload those logs.
+- **Claude Code uses external HTTPS requests.** AI Usage reads the `Claude Code-credentials` Keychain item and sends its access token only to `https://api.anthropic.com/api/oauth/usage` to request usage data.
+- **Claude credentials can be refreshed.** Shortly before the access token expires—or once after an unauthorized response—AI Usage can send the refresh token to `https://platform.claude.com/v1/oauth/token`. It writes refreshed credentials back to the same Keychain item only when the stored credentials have not changed.
+- **Tokens are not copied into app data.** Access and refresh tokens are not written to AI Usage snapshots, settings, or application logs.
+
+The Claude OAuth usage endpoint is an experimental dependency: this project has not confirmed a publicly documented stable contract for it, so provider-side changes may interrupt collection without notice.
+
+Separately from usage collection, Sparkle contacts `https://moritouch.com/ai-usage/appcast.xml` when update checks are enabled and downloads an approved update over HTTPS when requested.
+
+Do not post OAuth tokens, Keychain contents, raw tool logs, or unredacted snapshots in an issue. See [SECURITY.md](SECURITY.md) for private vulnerability reporting and a list of data that should not be shared.
+
+## Updates
+
+AI Usage uses Sparkle 2.9.6 with a signed update feed. Scheduled checks run every 24 hours by default; in Settings, you can enable or disable automatic checks and select **Check for Updates…** at any time.
+
+Release DMGs are Developer ID signed, notarized, and published at fixed version URLs. The public GitHub Release retains the corresponding DMG and SHA-256 file as an immutable release record. See [docs/RELEASE.md](docs/RELEASE.md) for the maintainer release and verification process.
+
+## Development
+
+Building from source requires Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen). The checked-in project uses the maintainer's Developer Team, bundle identifiers, and App Group. External contributors can generate the project and run the same unsigned test build as CI without access to those signing assets:
 
 ```bash
-brew install xcodegen          # 初回のみ
+brew install xcodegen
 xcodegen generate
-xcodebuild -project AIUsage.xcodeproj -scheme AIUsage \
-  -configuration Debug -derivedDataPath build/development \
+xcodebuild \
+  -project AIUsage.xcodeproj \
+  -scheme AIUsage \
+  -configuration Debug \
   -packageAuthorizationProvider netrc \
-  -onlyUsePackageVersionsFromResolvedFile build
-open "build/development/Build/Products/Debug/AI Usage.app"
+  -onlyUsePackageVersionsFromResolvedFile \
+  CODE_SIGNING_ALLOWED=NO \
+  test
 ```
 
-これはローカル開発専用の成果物。署名環境によっては `Apple Development` 署名になり、
-デバッグ用の `get-task-allow` entitlement を持つことがあるため、そのまま第三者へ配布しない。
-配布には上記の公証済み DMG を使う。
+To launch a local build, configure your own Developer Team, bundle identifiers, and App Group consistently in `project.yml`, both entitlement files, and `Shared/SnapshotStore.swift`, then regenerate the Xcode project. A local Debug build may use Apple Development signing and the `get-task-allow` entitlement. Do not distribute it to other users; use the notarized release process documented in [docs/RELEASE.md](docs/RELEASE.md).
 
-Keychain の許可を求められた場合は、公証済み配布版と署名者を確認してから判断する。
-「常に許可」を選ぶと継続的な更新が可能になるが、再署名・再インストール・Keychain設定変更後は
-再度確認されることがある。拒否しても Codex / Grok のローカル収集は利用できる。
-ログイン時に起動したい場合はシステム設定 >「一般」>「ログイン項目」に追加する。
+The main source directories are:
 
-ターミナルで Claude Code を使っていて、予備の statusLine 経路も入れたい場合:
-
-Claude Code を終了してから実行する。スクリプトは同時実行と途中の設定変更を検知して停止し、
-導入時・解除時とも復元用バックアップを `~/.claude/` に 0600 権限で残す。
-
-```bash
-./scripts/install-claude-statusline.sh   # 解除は uninstall-claude-statusline.sh
+```text
+App/       Menu bar app and settings UI
+Widget/    Sandboxed WidgetKit extension
+Shared/    Usage models, collectors, storage, and shared UI
+Tests/     Unit tests for collectors, credentials, and models
+scripts/   Development, status-line, appcast, and release tooling
 ```
 
-アプリアイコンは `scripts/make-icon.swift` で生成している。配色や塗り位置を変えて作り直せる。
+## Limitations
 
-## 解除
+- Codex and Grok values can lag until those tools write new local log entries. Collection failures, invalid observation times, or data older than six hours may be shown as `Stale`.
+- Claude Code collection depends on an OAuth usage endpoint without a confirmed public stable contract and on Claude Code's current Keychain credential format.
+- Local JSONL formats and provider plan labels can change. AI Usage validates the fields it uses, but an upstream change may temporarily make a tool unavailable.
+- Widget refresh timing is controlled by WidgetKit and is not guaranteed. The main app must remain running to collect new values.
+- Displayed values are a convenience reference, not an authoritative provider statement. Confirm critical allowance information in each provider's official interface.
+- AI Usage is an independent project and is not provided, endorsed, or affiliated with OpenAI, Anthropic, xAI, or Apple.
 
-```bash
-./scripts/uninstall-claude-statusline.sh   # statusLine を入れた場合のみ
-rm -rf "/Applications/AI Usage.app"
-rm -rf ~/Library/Group\ Containers/WTKUV8PPM7.jp.co.forestx.aiusage
-rm -rf ~/Library/Application\ Support/AIUsage
-```
+## Contributing
 
-## 配布
+Issues and focused pull requests are welcome. Before submitting a change:
 
-直接配布用のビルドと更新feedの手順は [docs/RELEASE.md](docs/RELEASE.md) を参照。
+1. Generate the Xcode project with `xcodegen generate` and make sure generated project changes are intentional.
+2. Run the unit tests and `scripts/check-localizations.sh`.
+3. Keep Japanese and English UI strings in sync when changing user-facing behavior.
+4. Avoid committing credentials, personal paths, raw session logs, snapshots, or release signing material.
 
-正規の紹介ページは [moritouch.com/ai-usage](https://moritouch.com/ai-usage)、Sparkle feedは
-`https://moritouch.com/ai-usage/appcast.xml`。どちらもmoritouchのCloudflare配信を正本とし、
-このリポジトリからGitHub Pagesは配信しない。署名・公証済みDMG、同名の`.sha256`、署名済み
-appcastをprofile WorkerのStatic Assetsへ固定version pathで配置する。公開GitHub Releaseにも同じ
-DMGと`.sha256`を保持し、固定tag・immutable Release・attestationを配布証跡にする。紹介ページは
-Cloudflare上の最新版DMGとSHA-256、およびこの公開repositoryへの導線を提供する。
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, pull-request checklist, and privacy boundaries.
 
-- [.github/workflows/release.yml](.github/workflows/release.yml) — Draftを検査し、Environment承認後に再検査してimmutable Releaseとして公開
-- [SECURITY.md](SECURITY.md) — 送ってはいけない診断情報と非公開の脆弱性報告窓口
+For a security vulnerability or accidental disclosure of sensitive data, use [GitHub Private Vulnerability Reporting](https://github.com/moritouch/ai-usage/security/advisories/new) instead of a public issue.
 
-Release workflowは最初のjobでDraft、固定tag、DMG、SHA-256を検査し、`release-publish` Environmentの
-承認を待つ。承認後のjobが同じ内容を再検査してからPublishし、immutable状態とattestationを確認する。
-確定済みReleaseとローカル成果物を照合したあとにWorkers配信用assetとappcastを生成し、moritouchの
-profile repositoryからCloudflareへdeployする。Appleの署名鍵や公証資格情報はGitHubへ置かない。
+## License
 
-## ライセンス
-
-本ソフトウェアは[MIT License](LICENSE)で提供する。第三者の名称・商標や、同梱する依存関係には
-それぞれの権利・ライセンスが適用される。repositoryの公開範囲とは別に、配布物へLICENSEと
-Third-Party Noticesを同梱する。
-
-## 制約
-
-- Codex と Grok はログ由来なので、そのツールを動かすまで値が変わらない。
-- Grok の `creditUsagePercent` は 0 のときフィールドごと省略される。欠落は 0 として扱っている。
-- プラン名は内部識別子で来ることがあるため `Shared/PlanLabel.swift` で表記を揃えている。
-  等級（`prolite`、`max_5x` など）は表に出さず `Pro` / `Max` に寄せる。
-- Claude Codeのaccess tokenは期限前に自動更新する。refresh tokenの失効、Keychainの拒否、
-  書戻し不能などで安全に更新できない場合はStaleとして再ログイン案内を表示する。
-- Claude Code の OAuth usage API は公開された安定契約を確認できていない実験的な依存先。
-  Claude Code 側の変更により、予告なく取得できなくなる可能性がある。
+AI Usage is available under the [MIT License](LICENSE). Third-party components and product names remain subject to their respective licenses and trademarks; distributed builds include the applicable third-party notices.
