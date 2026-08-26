@@ -389,6 +389,7 @@ private extension AgentUsage {
     var needsClaudeSignIn: Bool {
         note == "Claude sign-in expired and could not be refreshed; sign in to Claude Code again, then check again"
             || note == "Claude credentials were rejected; sign in to Claude Code again"
+            || note == "Claude usage data expired; sign in to Claude Code again, then check again"
     }
 }
 

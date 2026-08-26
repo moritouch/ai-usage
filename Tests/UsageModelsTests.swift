@@ -53,6 +53,101 @@ final class UsageModelsTests: XCTestCase {
         XCTAssertEqual(future.displayStatus, .stale)
     }
 
+    func testStaleWindowsAreRemovedAfterTheirResetDates() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var stale = agent(id: "codex", percent: 40, status: .stale, short: true)
+        stale.observedAt = now.addingTimeInterval(-60 * 86_400)
+        stale.windows[0].resetsAt = now.addingTimeInterval(-1)
+
+        let expired = stale.expiringStaleData(at: now)
+
+        XCTAssertTrue(expired.windows.isEmpty)
+        XCTAssertEqual(expired.status, .unavailable)
+        XCTAssertEqual(
+            expired.note,
+            "Codex usage data expired; complete a Codex response, then check again"
+        )
+    }
+
+    func testFreshObservationDoesNotKeepAWindowAfterItsResetDate() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var fresh = agent(id: "codex", percent: 40, status: .ok, short: true)
+        fresh.observedAt = now.addingTimeInterval(-2 * 3_600)
+        fresh.windows[0].resetsAt = now.addingTimeInterval(-3_600)
+
+        let expired = fresh.expiringStaleData(at: now)
+
+        XCTAssertTrue(expired.windows.isEmpty)
+        XCTAssertEqual(expired.status, .unavailable)
+    }
+
+    func testWindowExpiresAtItsExactResetDate() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var fresh = agent(id: "codex", percent: 40, status: .ok, short: true)
+        fresh.observedAt = now.addingTimeInterval(-60)
+        fresh.windows[0].resetsAt = now
+
+        XCTAssertTrue(fresh.expiringStaleData(at: now).windows.isEmpty)
+    }
+
+    func testOnlyWindowsWhoseResetDatesPassedAreRemoved() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var stale = agent(id: "claude-code", percent: 40, status: .stale, short: true)
+        stale.observedAt = now.addingTimeInterval(-7 * 3_600)
+        stale.windows[0].resetsAt = now.addingTimeInterval(-1)
+        stale.windows.append(
+            UsageWindow(
+                id: "future", label: "7d", usedPercent: 20,
+                resetsAt: now.addingTimeInterval(3_600), windowSeconds: 7 * 86_400
+            )
+        )
+
+        let retained = stale.expiringStaleData(at: now)
+
+        XCTAssertEqual(retained.windows.map(\.id), ["future"])
+        XCTAssertEqual(retained.status, .stale)
+    }
+
+    func testStaleWindowRemainsVisibleUntilItsResetDate() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var stale = agent(id: "codex", percent: 40, status: .stale, short: true)
+        stale.observedAt = now.addingTimeInterval(-7 * 3_600)
+        stale.windows[0].resetsAt = now.addingTimeInterval(60)
+
+        XCTAssertEqual(stale.expiringStaleData(at: now).windows, stale.windows)
+    }
+
+    func testStaleWindowWithoutResetHasBoundedRetention() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var stale = agent(id: "unknown", percent: 40, status: .stale, short: true)
+        stale.observedAt = now.addingTimeInterval(-31 * 86_400)
+        stale.windows[0].resetsAt = nil
+
+        XCTAssertTrue(stale.expiringStaleData(at: now).windows.isEmpty)
+    }
+
+    func testUnknownResetIsRetainedThroughThirtyDayBoundary() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var stale = agent(id: "unknown", percent: 40, status: .stale, short: true)
+        stale.observedAt = now.addingTimeInterval(-AgentUsage.maximumStaleRetention)
+        stale.windows[0].resetsAt = nil
+
+        XCTAssertEqual(stale.expiringStaleData(at: now).windows, stale.windows)
+
+        stale.observedAt = stale.observedAt?.addingTimeInterval(-1)
+        XCTAssertTrue(stale.expiringStaleData(at: now).windows.isEmpty)
+    }
+
+    func testMissingObservationExpiresUnknownResetWindow() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var stale = agent(id: "unknown", percent: 40, status: .ok, short: true)
+        stale.observedAt = nil
+        stale.windows[0].resetsAt = nil
+
+        XCTAssertEqual(stale.displayStatus(at: now), .stale)
+        XCTAssertTrue(stale.expiringStaleData(at: now).windows.isEmpty)
+    }
+
     func testDecodedPercentIsClamped() throws {
         let data = Data(
             #"{"id":"test","label":"Test","usedPercent":-20,"resetsAt":null,"windowSeconds":18000}"#.utf8

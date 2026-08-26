@@ -132,5 +132,9 @@
 "note.claude.credentialsUnavailable" = "Claude credentials are unavailable; sign in to Claude Code or allow Keychain access";
 "note.claude.signInExpired" = "Your Claude Code sign-in expired and could not be refreshed. Sign in to Claude Code again, then choose Check Again.";
 "note.claude.credentialsRejected" = "Claude credentials were rejected; sign in to Claude Code again";
+"note.claude.dataExpired" = "Stored usage data expired. Sign in to Claude Code again, then choose Check Again.";
+"note.codex.dataExpired" = "Stored usage data expired. Complete a normal Codex response, then choose Check Again.";
+"note.grok.dataExpired" = "Stored usage data expired. Use Grok normally, then choose Check Again.";
+"note.agent.dataExpired" = "Stored usage data expired. Use the agent, then choose Check Again.";
 "note.claude.rateLimited" = "Claude usage API is rate-limited; try again later";
 "note.claude.unreachable" = "Claude usage API could not be reached";
