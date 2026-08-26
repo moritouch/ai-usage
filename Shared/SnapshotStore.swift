@@ -72,9 +72,10 @@ enum SnapshotStore {
         return decoder
     }
 
-    /// Widget向けの互換API。失敗は空表示にし、本体はthrowing APIで理由を表示する。
+    /// Widget向けの互換API。失敗は空表示にし、期限切れの値は
+    /// 本体が起動していない間も公開snapshotから除外する。
     static func load() -> UsageSnapshot {
-        (try? loadPublished()) ?? .empty
+        ((try? loadPublished()) ?? .empty).expiringStaleData()
     }
 
     static func loadPublished() throws -> UsageSnapshot {

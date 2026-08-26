@@ -101,6 +101,7 @@ enum AgentStatus: String, Codable {
 }
 
 struct AgentUsage: Codable, Hashable, Identifiable {
+    static let maximumStaleRetention: TimeInterval = 30 * 86_400
     var id: String            // "claude-code" / "codex" ...
     var name: String
     var plan: String?
@@ -124,13 +125,53 @@ struct AgentUsage: Codable, Hashable, Identifiable {
 
     /// Collectorの状態と観測時刻を統合した表示用の鮮度。
     var displayStatus: AgentStatus {
+        displayStatus(at: Date())
+    }
+
+    func displayStatus(at now: Date) -> AgentStatus {
         guard !windows.isEmpty else { return status }
         guard status == .ok else { return status }
         guard let observedAt else { return .stale }
-        let age = Date().timeIntervalSince(observedAt)
+        let age = now.timeIntervalSince(observedAt)
         guard age.isFinite else { return .stale }
         guard age >= -5 * 60 else { return .stale }
         return age > 6 * 3_600 ? .stale : .ok
+    }
+
+    /// A stale percentage stops being meaningful once its quota window has reset.
+    /// Unknown reset dates get a bounded fallback so an abandoned local log cannot
+    /// remain on screen forever.
+    func expiringStaleData(at now: Date) -> AgentUsage {
+        let observationIsStale = displayStatus(at: now) == .stale
+        let age = observedAt.map { now.timeIntervalSince($0) }
+        let retained = windows.filter { window in
+            if let resetsAt = window.resetsAt { return resetsAt > now }
+            guard observationIsStale else { return true }
+            guard let age, age.isFinite else { return false }
+            return age >= 0 && age <= Self.maximumStaleRetention
+        }
+        guard retained.count != windows.count else { return self }
+
+        var copy = self
+        copy.windows = retained
+        if retained.isEmpty {
+            copy.status = .unavailable
+            copy.note = expiredDataNote
+        }
+        return copy
+    }
+
+    private var expiredDataNote: String {
+        switch id {
+        case "claude-code":
+            return "Claude usage data expired; sign in to Claude Code again, then check again"
+        case "codex":
+            return "Codex usage data expired; complete a Codex response, then check again"
+        case "grok":
+            return "Grok usage data expired; use Grok, then check again"
+        default:
+            return "Stored usage data expired; use the agent, then check again"
+        }
     }
 
 }
@@ -142,6 +183,14 @@ struct UsageSnapshot: Codable, Hashable {
     var preferredAgentID: String?
 
     static let empty = UsageSnapshot(updatedAt: .distantPast, agents: [])
+
+    func expiringStaleData(at now: Date = Date()) -> UsageSnapshot {
+        UsageSnapshot(
+            updatedAt: updatedAt,
+            agents: agents.map { $0.expiringStaleData(at: now) },
+            preferredAgentID: preferredAgentID
+        )
+    }
 
     /// 見出しに出す 1 件。決め方は 3 段階。
     ///  1. 利用者が優先指定したエージェント

@@ -80,6 +80,14 @@ enum L10n {
             key = "note.claude.signInExpired"
         case "Claude credentials were rejected; sign in to Claude Code again":
             key = "note.claude.credentialsRejected"
+        case "Claude usage data expired; sign in to Claude Code again, then check again":
+            key = "note.claude.dataExpired"
+        case "Codex usage data expired; complete a Codex response, then check again":
+            key = "note.codex.dataExpired"
+        case "Grok usage data expired; use Grok, then check again":
+            key = "note.grok.dataExpired"
+        case "Stored usage data expired; use the agent, then check again":
+            key = "note.agent.dataExpired"
         case "Claude usage API is rate-limited; try again later":
             key = "note.claude.rateLimited"
         case "Claude usage API could not be reached":

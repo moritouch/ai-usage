@@ -189,10 +189,16 @@ private struct AgentToggle: View {
             }
         }
         .accessibilityLabel(agent.name)
-        .accessibilityValue(
-            L10n.text(isVisible ? "settings.shown" : "settings.hidden", language: language)
-        )
+        .accessibilityValue(accessibilityValue)
         .accessibilityHint(L10n.text("settings.visibility.hint", language: language))
+    }
+
+    private var accessibilityValue: String {
+        let visibility = L10n.text(
+            isVisible ? "settings.shown" : "settings.hidden",
+            language: language
+        )
+        return [visibility, subtitle].joined(separator: language == .japanese ? "、" : ", ")
     }
 
     /// 取得元と状態を一行で示す。伏せる判断の材料になる。

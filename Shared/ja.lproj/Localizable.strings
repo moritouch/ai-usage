@@ -132,5 +132,9 @@
 "note.claude.credentialsUnavailable" = "Claudeの認証情報を利用できません。Claude Codeへログインするか、Keychainアクセスを許可してください";
 "note.claude.signInExpired" = "Claude Codeの認証期限が切れ、自動更新できませんでした。Claude Codeへ再ログインしてから「再確認」を押してください";
 "note.claude.credentialsRejected" = "Claudeの認証情報が拒否されました。Claude Codeへ再ログインしてください";
+"note.claude.dataExpired" = "保存されていた使用量データは期限切れです。Claude Codeへ再ログインしてから「再確認」を押してください";
+"note.codex.dataExpired" = "保存されていた使用量データは期限切れです。Codexで通常の応答を完了してから「再確認」を押してください";
+"note.grok.dataExpired" = "保存されていた使用量データは期限切れです。Grokを通常利用してから「再確認」を押してください";
+"note.agent.dataExpired" = "保存されていた使用量データは期限切れです。エージェントを利用してから「再確認」を押してください";
 "note.claude.rateLimited" = "Claude使用量APIがレート制限中です。時間を置いてください";
 "note.claude.unreachable" = "Claude使用量APIへ接続できませんでした";

@@ -149,9 +149,9 @@ final class UsageModel: ObservableObject {
         // 初回はシステム言語から決めた値もApp Groupへ確定し、Widgetと揃える。
         LanguagePreference.save(language)
         if let saved = try? SnapshotStore.loadPrivate() {
-            snapshot = saved
+            snapshot = saved.expiringStaleData()
         } else if let published = try? SnapshotStore.loadPublished() {
-            snapshot = published
+            snapshot = published.expiringStaleData()
         }
         applyActivationPolicy()
         AppDelegate.onReopen = { [weak self] in self?.openWindow() }
@@ -364,6 +364,7 @@ final class UsageModel: ObservableObject {
             else { return }
 
             let merged = self.mergingUnavailableAgents(in: fresh, with: self.snapshot)
+                .expiringStaleData()
             let currentOrder = self.agentOrder
             let currentAgents = self.reordered(merged.agents, by: currentOrder)
             let normalized = UsageSnapshot(
