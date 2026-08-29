@@ -166,6 +166,15 @@ final class UsageModelsTests: XCTestCase {
     func testSelectedLanguageUsesMatchingCopy() {
         XCTAssertEqual(L10n.text("common.stale", language: .english), "Stale")
         XCTAssertEqual(L10n.text("common.stale", language: .japanese), "Stale")
+        XCTAssertEqual(L10n.text("common.quit", language: .japanese), "Quit")
+        XCTAssertEqual(
+            L10n.format("popover.checked.format", language: .japanese, "9:41:28"),
+            "Checked 9:41:28"
+        )
+        XCTAssertEqual(
+            L10n.text("popover.notChecked", language: .japanese),
+            "Not checked yet"
+        )
         XCTAssertEqual(
             L10n.format(
                 "settings.staleStatus.format",

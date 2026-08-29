@@ -204,8 +204,10 @@ struct UsagePopoverView: View {
                 Button(L10n.text("common.quit", language: language)) {
                     NSApplication.shared.terminate(nil)
                 }
-                    .buttonStyle(.borderless)
-                    .font(.caption)
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.small)
+                    .font(.caption.weight(.semibold))
             }
         }
         .padding(.horizontal, 14)

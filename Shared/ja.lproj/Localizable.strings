@@ -6,7 +6,7 @@
 "common.help" = "ヘルプ";
 "common.refreshNow" = "今すぐ更新";
 "common.checkAgain" = "再確認";
-"common.quit" = "終了";
+"common.quit" = "Quit";
 "common.reset" = "リセット";
 "common.left.format" = "残り %@";
 "common.usedQuota" = "使用済み割合";
@@ -35,8 +35,8 @@
 "popover.refreshing" = "使用量を更新中";
 "popover.settings.help" = "設定を開く";
 "popover.help.help" = "対処方法のヘルプを開く";
-"popover.checked.format" = "確認 %@";
-"popover.notChecked" = "未確認";
+"popover.checked.format" = "Checked %@";
+"popover.notChecked" = "Not checked yet";
 "popover.checked.help" = "アプリが新しい値の取得を最後に試みた時刻";
 "popover.agentUsage.format" = "%@の使用量";
 "popover.stale.help" = "このデータの更新方法を表示";
