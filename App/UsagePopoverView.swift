@@ -151,9 +151,6 @@ struct UsagePopoverView: View {
         HStack {
             Text("AI Usage")
                 .font(.headline)
-            Text(L10n.text("common.used", language: language))
-                .font(.caption2)
-                .foregroundStyle(.secondary)
             Spacer()
             Button {
                 model.refresh(force: true)

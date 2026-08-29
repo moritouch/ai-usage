@@ -244,9 +244,6 @@ struct UsageWidgetView: View {
                 Text("AI Usage")
                     .font(.caption.weight(.semibold))
                 Spacer()
-                Text(L10n.text("common.used", language: language))
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
             }
             .padding(.bottom, 6)
 
