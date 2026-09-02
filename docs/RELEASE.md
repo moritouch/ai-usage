@@ -330,8 +330,24 @@ mkdir -p "$PUBLIC_ASSETS_ROOT"
 2 fileがbyte一致する場合だけ再利用し、差し替えを拒否する。既存appcastの履歴を保持し、deltaを生成せず、
 すべての検証に成功した場合だけ出力をatomicに置き換える。出力後にXMLを手編集しない。
 
-profile repository側の変更内容に、想定したtagのenclosure URLと署名以外の差分が混ざっていないことを
-reviewしてcommit/pushし、対象Cloudflare accountが`moritouch`であることを確認してdeployする。
+`prepare-appcast.sh`はfeedと公開assetだけを更新する。profile repositoryが持つversion pinは別管理なので、
+続けて`wrangler.jsonc`の`NEXT_PUBLIC_AI_USAGE_LATEST_VERSION`を今回のversionへ上げ、型定義を再生成する。
+これを飛ばすとdeploy前の`verify:ai-usage-release`が
+`build environment NEXT_PUBLIC_AI_USAGE_LATEST_VERSION must match wrangler.jsonc`で停止する
+（deployは開始されないので配信中のfeedには影響しない）。`cloudflare-env.d.ts`は生成物なので手編集しない。
+
+```bash
+cd "$PROFILE_REPO"
+# wrangler.jsonc の NEXT_PUBLIC_AI_USAGE_LATEST_VERSION を "${TAG#v}" へ更新してから実行する
+pnpm run cf-typegen
+git diff -- wrangler.jsonc cloudflare-env.d.ts
+```
+
+差分は`wrangler.jsonc`の1行、`cloudflare-env.d.ts`の型リテラルと生成hashの2行だけになる。
+
+profile repository側の変更内容に、想定したtagのenclosure URLと署名、上記のversion pin以外の差分が
+混ざっていないことをreviewしてcommit/pushし、対象Cloudflare accountが`moritouch`であることを
+確認してdeployする。
 
 ```bash
 cd "$PROFILE_REPO"
