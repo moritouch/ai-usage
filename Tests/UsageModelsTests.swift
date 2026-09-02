@@ -69,6 +69,23 @@ final class UsageModelsTests: XCTestCase {
         )
     }
 
+    func testExpiringStaleDataKeepsTheCollectorsSpecificNote() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var stale = agent(id: "claude-code", percent: 40, status: .stale, short: true)
+        stale.observedAt = now.addingTimeInterval(-60 * 86_400)
+        stale.windows[0].resetsAt = now.addingTimeInterval(-1)
+        stale.note = "Claude usage needs a terminal Claude Code sign-in; run claude in Terminal, then check again"
+
+        let expired = stale.expiringStaleData(at: now)
+
+        XCTAssertTrue(expired.windows.isEmpty)
+        XCTAssertEqual(expired.status, .unavailable)
+        XCTAssertEqual(
+            expired.note,
+            "Claude usage needs a terminal Claude Code sign-in; run claude in Terminal, then check again"
+        )
+    }
+
     func testFreshObservationDoesNotKeepAWindowAfterItsResetDate() {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         var fresh = agent(id: "codex", percent: 40, status: .ok, short: true)

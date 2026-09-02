@@ -91,12 +91,14 @@ enum ClaudeCollector {
                                     maximumFuture: 5 * 60)
         let isStale = observedAt.map { Date().timeIntervalSince($0) > 6 * 3_600 } ?? true
 
+        // statusLineの控えが残っていても、API側が落ちている理由は伝え続ける。
+        // ここでnilにすると、値が古くなった後で「なぜ更新されないか」が画面から消える。
         return AgentUsage(
             id: "claude-code", name: "Claude Code", plan: nil,
             windows: windows, observedAt: observedAt,
             source: "statusLine hook",
             status: windows.isEmpty ? .unavailable : (isStale ? .stale : .ok),
-            note: windows.isEmpty ? failureNote(apiFailure) : nil
+            note: (windows.isEmpty || isStale) ? failureNote(apiFailure) : nil
         )
     }
 
@@ -108,6 +110,8 @@ enum ClaudeCollector {
             return "Claude credentials are unavailable; sign in to Claude Code or allow Keychain access"
         case .credentialExpired:
             return "Claude sign-in expired and could not be refreshed; sign in to Claude Code again, then check again"
+        case .terminalSignInRequired:
+            return "Claude usage needs a terminal Claude Code sign-in; run claude in Terminal, then check again"
         case .unauthorized:
             return "Claude credentials were rejected; sign in to Claude Code again"
         case .rateLimited:

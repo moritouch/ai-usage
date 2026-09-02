@@ -29,7 +29,7 @@ struct UsagePopoverView: View {
         }
         let gaps = CGFloat(max(0, visibleAgents.count - 1)) * 8
         let storageNotice: CGFloat = model.storageError == nil ? 0 : 44
-        let signInNotices = CGFloat(visibleAgents.filter(\.needsClaudeSignIn).count) * 25
+        let signInNotices = CGFloat(visibleAgents.filter(\.needsClaudeSignIn).count) * 34
         // Font metrics can differ by a few points from the compact row estimate.
         // Leave per-card room so a fully visible list does not retain a tiny scroll range.
         let fittingAllowance = CGFloat(visibleAgents.count) * 8
@@ -54,7 +54,9 @@ struct UsagePopoverView: View {
                             language: language,
                             moveUp: { model.moveAgent(agent.id, by: -1) },
                             moveDown: { model.moveAgent(agent.id, by: 1) },
-                            showStaleHelp: { model.openHelp(for: agent.id) }
+                            showStaleHelp: { model.openHelp(for: agent.id) },
+                            recheck: { model.refresh(force: true) },
+                            isRefreshing: model.isRefreshing
                         )
                         .onDrag {
                             model.beginDrag(agent.id)
@@ -258,6 +260,8 @@ struct AgentRow: View {
     let moveUp: () -> Void
     let moveDown: () -> Void
     let showStaleHelp: () -> Void
+    let recheck: () -> Void
+    var isRefreshing: Bool = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 9) {
@@ -365,16 +369,32 @@ struct AgentRow: View {
                 }
             }
 
-            if agent.needsClaudeSignIn {
-                Button(action: showStaleHelp) {
-                    Label(
-                        L10n.text("popover.claudeSignIn", language: language),
-                        systemImage: "person.badge.key"
-                    )
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.orange)
+            if let action = agent.attentionAction {
+                // 文字リンクだけだと押せることに気づかれない。
+                // 復帰に必要な2手（案内を読む／取り直す）をその場のボタンとして出す。
+                HStack(spacing: 6) {
+                    Button(action: showStaleHelp) {
+                        Label(
+                            L10n.text(action.labelKey, language: language),
+                            systemImage: action.symbol
+                        )
+                        .font(.caption2.weight(.semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+
+                    Button(action: recheck) {
+                        Label(
+                            L10n.text("common.checkAgain", language: language),
+                            systemImage: "arrow.clockwise"
+                        )
+                        .font(.caption2.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isRefreshing)
                 }
-                .buttonStyle(.plain)
+                .buttonBorderShape(.capsule)
+                .controlSize(.small)
                 .help(
                     L10n.agentNote(agent.note, language: language)
                         ?? L10n.text("popover.stale.help", language: language)
@@ -385,11 +405,27 @@ struct AgentRow: View {
 }
 
 private extension AgentUsage {
-    var needsClaudeSignIn: Bool {
-        note == "Claude sign-in expired and could not be refreshed; sign in to Claude Code again, then check again"
-            || note == "Claude credentials were rejected; sign in to Claude Code again"
-            || note == "Claude usage data expired; sign in to Claude Code again, then check again"
+    struct AttentionAction {
+        let labelKey: String
+        let symbol: String
     }
+
+    /// 復帰操作が決まっている状態だけボタンを出す。
+    /// ターミナルログインが要る場合は、再ログインでは直らないので文言を分ける。
+    var attentionAction: AttentionAction? {
+        switch note {
+        case "Claude usage needs a terminal Claude Code sign-in; run claude in Terminal, then check again":
+            return AttentionAction(labelKey: "popover.claudeTerminalSignIn", symbol: "terminal")
+        case "Claude sign-in expired and could not be refreshed; sign in to Claude Code again, then check again",
+             "Claude credentials were rejected; sign in to Claude Code again",
+             "Claude usage data expired; sign in to Claude Code again, then check again":
+            return AttentionAction(labelKey: "popover.claudeSignIn", symbol: "person.badge.key")
+        default:
+            return nil
+        }
+    }
+
+    var needsClaudeSignIn: Bool { attentionAction != nil }
 }
 
 struct WindowBar: View {

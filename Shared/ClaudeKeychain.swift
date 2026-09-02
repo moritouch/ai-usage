@@ -25,6 +25,9 @@ enum ClaudeKeychain {
         case accessDenied
         case malformed
         case expired
+        /// 項目はあるが `claudeAiOauth` が無い。デスクトップ版Claudeだけを使うと
+        /// 同じ項目へ `mcpOAuth` しか書かれず、この状態になる。
+        case notLinked
     }
 
     enum CredentialState: Sendable {
@@ -54,6 +57,36 @@ enum ClaudeKeychain {
     private struct KeychainItem {
         let data: Data
         let persistentRef: Data
+    }
+
+    /// Keychain項目の中身の種類。
+    ///
+    /// 同じ項目をターミナル版CLI（`claudeAiOauth`）とデスクトップ版のMCP OAuth
+    /// （`mcpOAuth`）が共有するため、「壊れている」と「CLIがまだ書いていない」を
+    /// 取り違えると案内が的外れになる。読み取り前にここで分ける。
+    enum PayloadShape: Sendable, Equatable {
+        case usable
+        case notLinked
+        case malformed
+    }
+
+    static func payloadShape(_ data: Data) -> PayloadShape {
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return .malformed }
+        guard let oauth = root["claudeAiOauth"] else { return .notLinked }
+        return oauth is [String: Any] ? .usable : .malformed
+    }
+
+    /// `~/.claude.json` に `oauthAccount` があれば、どこかでClaudeへログイン済み。
+    /// CLIトークンが無い理由が「未ログイン」なのか「CLIを一度も使っていない」なのかを
+    /// 切り分けて、案内先をターミナルログインに寄せるために使う。
+    static func hasSignedInAccount() -> Bool {
+        let url = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude.json")
+        guard let data = readBoundedFile(at: url, maximumBytes: accountFileMaximumBytes),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return false }
+        return root["oauthAccount"] is [String: Any]
     }
 
     /// 契約プラン名（"max" など）。無い版もあるので任意項目として扱う。
@@ -91,6 +124,12 @@ enum ClaudeKeychain {
             default:
                 return .unavailable(.malformed)
             }
+        }
+
+        switch payloadShape(item.data) {
+        case .malformed: return .unavailable(.malformed)
+        case .notLinked: return .unavailable(.notLinked)
+        case .usable: break
         }
 
         guard let oauth = try? JSONDecoder().decode(Credentials.self, from: item.data).claudeAiOauth,
@@ -330,6 +369,19 @@ enum ClaudeKeychain {
         return fallbackVersion
     }
 
+    /// 先頭から上限バイトまで読む。上限を超えるファイルは扱わない。
+    private static func readBoundedFile(at url: URL, maximumBytes: Int) -> Data? {
+        guard maximumBytes >= 0, maximumBytes < Int.max,
+              let handle = try? FileHandle(forReadingFrom: url)
+        else { return nil }
+        defer { try? handle.close() }
+
+        guard let data = try? handle.read(upToCount: maximumBytes + 1),
+              data.count <= maximumBytes
+        else { return nil }
+        return data
+    }
+
     /// オフセットが UTF-8 の途中に入っても、最初の不完全な行を捨てて行境界から返す。
     private static func readTail(of url: URL, maximumBytes: Int) -> Data? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
@@ -386,5 +438,6 @@ enum ClaudeKeychain {
     }
 
     private static let versionTailBytes = 256 * 1_024
+    private static let accountFileMaximumBytes = 4 * 1_024 * 1_024
     private static let fallbackVersion = "2.1.221"
 }

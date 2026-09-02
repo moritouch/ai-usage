@@ -43,7 +43,7 @@ AI Usage uses the data source currently exposed by each tool; there is no common
 
 | Tool | Data source | Data shown | Usage-collection network access |
 | --- | --- | --- | --- |
-| **Claude Code** | Claude Code credentials in macOS Keychain and Anthropic's OAuth usage endpoint | Available five-hour, weekly, and model-specific windows, reset times, and plan label | Yes |
+| **Claude Code** | Credentials that *terminal* Claude Code stores in the macOS Keychain, and Anthropic's OAuth usage endpoint | Available five-hour, weekly, and model-specific windows, reset times, and plan label | Yes |
 | **Codex** | `~/.codex/sessions/**/rollout-*.jsonl` | Available primary and secondary windows, reset times, and plan label | No; local file reading only |
 | **Grok** | `~/.grok/logs/unified.jsonl` | Current billing-period usage, period end, and subscription label | No; local file reading only |
 
@@ -53,7 +53,7 @@ Gemini CLI and Cursor are not currently supported because the required allowance
 
 ## Installation
 
-1. Sign in to Claude Code if you want to monitor it. Complete at least one normal response in Codex or Grok so each tool can create or update its local usage log.
+1. Sign in to Claude Code **from Terminal** (`claude`) if you want to monitor it. The Claude desktop app keeps its session elsewhere and never writes the credentials AI Usage reads, so a desktop-only install shows no Claude usage; one terminal sign-in is enough, and AI Usage refreshes it from then on. Complete at least one normal response in Codex or Grok so each tool can create or update its local usage log.
 2. Download the notarized DMG from the [product page](https://moritouch.com/ai-usage), open it, and drag **AI Usage.app** to the **Applications** shortcut.
 3. Eject the DMG and launch AI Usage from Applications.
 4. macOS may ask for access to Claude Code's Keychain item. After confirming that you installed the notarized release and its expected signer, choose **Always Allow** if you want Claude usage to refresh without repeated prompts. Declining does not prevent local Codex and Grok collection.

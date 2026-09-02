@@ -41,6 +41,7 @@
 "popover.stale.help" = "このデータの更新方法を表示";
 "popover.stale.accessibility" = "古い使用量データ。対処方法を表示します。";
 "popover.claudeSignIn" = "Claude Codeへ再ログイン";
+"popover.claudeTerminalSignIn" = "ターミナルでログイン";
 "popover.moveUp" = "上へ移動";
 "popover.moveDown" = "下へ移動";
 "popover.reorder.help" = "ドラッグまたはこのメニューで並べ替え";
@@ -91,7 +92,7 @@
 "help.checkedExplanation" = "「最終確認」はAI Usageが取得を試みた時刻です。直近でも新しい有効な値を取得できなければ、Staleのままです。";
 "help.steps" = "試すこと";
 "help.claude.title" = "Claude Code";
-"help.claude.body" = "認証期限が近い場合は自動更新します。更新できない案内が出た場合はClaude Codeへ再ログインしてから「再確認」を押してください。あわせてネット接続とKeychainの許可を確認します。statusLine経由の場合は、ターミナル版Claude Codeで通常の応答を完了します。レート制限中は時間を置いてください。";
+"help.claude.body" = "使用量はターミナル版Claude CodeがKeychainへ保存した認証情報から取得します。デスクトップ版アプリだけを使っている場合はこの認証情報が作られないため、ターミナルで`claude`を一度実行してログインしてください。以後の更新は自動です。認証期限が近い場合は自動更新し、更新できない案内が出た場合は再ログインしてから「再確認」を押してください。あわせてネット接続とKeychainの許可を確認します。statusLine経由の場合は、ターミナル版Claude Codeで通常の応答を完了します。レート制限中は時間を置いてください。";
 "help.codex.title" = "Codex";
 "help.codex.body" = "Codexで通常の応答を完了してから再確認してください。再確認だけではローカルのsession logは更新されません。";
 "help.grok.title" = "Grok";
@@ -131,6 +132,7 @@
 "note.claude.credentialsUnavailable" = "Claudeの認証情報を利用できません。Claude Codeへログインするか、Keychainアクセスを許可してください";
 "note.claude.signInExpired" = "Claude Codeの認証期限が切れ、自動更新できませんでした。Claude Codeへ再ログインしてから「再確認」を押してください";
 "note.claude.credentialsRejected" = "Claudeの認証情報が拒否されました。Claude Codeへ再ログインしてください";
+"note.claude.terminalSignIn" = "ターミナル版Claude Codeのログインが必要です。ターミナルで`claude`を実行してログインしてから「再確認」を押してください。デスクトップ版アプリだけでは使用量を取得できません";
 "note.claude.dataExpired" = "保存されていた使用量データは期限切れです。Claude Codeへ再ログインしてから「再確認」を押してください";
 "note.codex.dataExpired" = "保存されていた使用量データは期限切れです。Codexで通常の応答を完了してから「再確認」を押してください";
 "note.grok.dataExpired" = "保存されていた使用量データは期限切れです。Grokを通常利用してから「再確認」を押してください";

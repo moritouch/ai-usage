@@ -62,6 +62,7 @@ struct StaleHelpView: View {
                             systemImage: "arrow.clockwise"
                         )
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(model.isRefreshing)
 
                     Text(L10n.text("help.checkAgain.detail", language: language))

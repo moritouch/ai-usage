@@ -28,6 +28,31 @@ final class ClaudeKeychainTests: XCTestCase {
         XCTAssertTrue(ClaudeKeychain.shouldRetryReadFailure(errSecNotAvailable))
     }
 
+    func testPayloadShapeSeparatesAnMcpOnlyItemFromMalformedData() throws {
+        // デスクトップ版Claudeだけを使うと、同じKeychain項目に mcpOAuth しか入らない。
+        // これを malformed と同じ扱いにすると案内が「再ログイン」になり、実際に必要な
+        // ターミナルログインへ辿り着けない。
+        let mcpOnly = try JSONSerialization.data(
+            withJSONObject: ["mcpOAuth": ["server": ["accessToken": "value"]]]
+        )
+        XCTAssertEqual(ClaudeKeychain.payloadShape(mcpOnly), .notLinked)
+
+        let linked = try JSONSerialization.data(
+            withJSONObject: [
+                "claudeAiOauth": ["accessToken": "value"],
+                "mcpOAuth": ["server": ["accessToken": "value"]],
+            ]
+        )
+        XCTAssertEqual(ClaudeKeychain.payloadShape(linked), .usable)
+
+        XCTAssertEqual(ClaudeKeychain.payloadShape(Data("not json".utf8)), .malformed)
+
+        let wrongType = try JSONSerialization.data(
+            withJSONObject: ["claudeAiOauth": "unexpected"]
+        )
+        XCTAssertEqual(ClaudeKeychain.payloadShape(wrongType), .malformed)
+    }
+
     func testCredentialMergeRotatesTokensAndPreservesUnknownFields() throws {
         let source: [String: Any] = [
             "claudeAiOauth": [

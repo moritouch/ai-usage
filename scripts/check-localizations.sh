@@ -8,6 +8,11 @@ JA_STRINGS="$ROOT_DIR/Shared/ja.lproj/Localizable.strings"
 plutil -lint "$EN_STRINGS" "$JA_STRINGS" >/dev/null
 
 ruby -rjson -ropen3 -e '
+  # カタログもSwiftソースも日本語を含む。LANG未設定のシェルではUS-ASCII扱いになり
+  # JSON.parse と scan が落ちるため、この検査の中だけUTF-8に固定する。
+  Encoding.default_external = Encoding::UTF_8
+  Encoding.default_internal = Encoding::UTF_8
+
   def load_strings(path)
     output, status = Open3.capture2("plutil", "-convert", "json", "-o", "-", path)
     abort "Could not parse #{path}" unless status.success?

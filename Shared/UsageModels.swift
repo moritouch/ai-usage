@@ -156,7 +156,9 @@ struct AgentUsage: Codable, Hashable, Identifiable {
         copy.windows = retained
         if retained.isEmpty {
             copy.status = .unavailable
-            copy.note = expiredDataNote
+            // Collectorが掴んでいる具体的な理由のほうが行動につながる。
+            // 一般論の「期限切れ」で上書きすると、実際に必要な操作が見えなくなる。
+            copy.note = note ?? expiredDataNote
         }
         return copy
     }

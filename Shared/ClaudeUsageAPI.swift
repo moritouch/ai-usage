@@ -37,6 +37,9 @@ actor ClaudeUsageAPI {
     enum FailureReason: Sendable {
         case credentialUnavailable
         case credentialExpired
+        /// Claudeにはログイン済みだが、CLIのOAuthトークンがKeychainに無い。
+        /// デスクトップ版だけを使っている場合はこの状態のまま変わらない。
+        case terminalSignInRequired
         case unauthorized
         case rateLimited
         case networkOrServer
@@ -70,6 +73,7 @@ actor ClaudeUsageAPI {
         case rateLimited(retryAt: Date?)
         case credentialUnavailable
         case credentialExpired
+        case terminalSignInRequired
         case unauthorized
         case forbidden
         case failed
@@ -144,6 +148,9 @@ actor ClaudeUsageAPI {
         case .credentialExpired:
             recordFailure(now: now, reason: .credentialExpired)
 
+        case .terminalSignInRequired:
+            recordFailure(now: now, reason: .terminalSignInRequired)
+
         case .unauthorized:
             consecutiveFailures += 1
             nextAttemptAt = now.addingTimeInterval(15 * 60)
@@ -207,8 +214,19 @@ actor ClaudeUsageAPI {
             }
 
         case let .unavailable(failure):
-            if case .expired = failure { return .credentialExpired }
-            return .credentialUnavailable
+            switch failure {
+            case .expired:
+                return .credentialExpired
+            case .notLinked:
+                return .terminalSignInRequired
+            case .notFound:
+                // Claudeにログイン済みなら、足りないのはターミナル版CLIのログインだけ。
+                return ClaudeKeychain.hasSignedInAccount()
+                    ? .terminalSignInRequired
+                    : .credentialUnavailable
+            case .accessDenied, .malformed:
+                return .credentialUnavailable
+            }
         }
 
         let first = await perform(
