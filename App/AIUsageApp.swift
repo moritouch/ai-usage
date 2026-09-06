@@ -124,8 +124,9 @@ final class UsageModel: ObservableObject {
         }
     }
 
-    /// 設定画面用。伏せたものも含む全件。
-    var allAgents: [AgentUsage] { reordered(snapshot.agents, by: agentOrder) }
+    /// 設定画面用。伏せたエージェントも含めて出すが、枠の絞り込みは他の画面と揃える。
+    /// ここだけ補助枠が残ると、トグルを切っているのに一覧へ出て混乱する。
+    var allAgents: [AgentUsage] { presented(reordered(snapshot.agents, by: agentOrder)) }
 
     /// 表示対象だけに絞ったスナップショット。メニューバーとウィジェットはこれを見る。
     var visibleSnapshot: UsageSnapshot {
@@ -146,13 +147,6 @@ final class UsageModel: ObservableObject {
     @Published private(set) var claudeSessionKeyHint: String?
 
     var hasClaudeSessionKey: Bool { claudeSessionKeyHint != nil }
-
-    /// Claude CodeのOAuth資格情報が無く、session keyでしか取得できない状態か。
-    var needsClaudeSessionKey: Bool {
-        snapshot.agents.contains {
-            $0.id == "claude-code" && $0.windows.isEmpty && $0.status != .notInstalled
-        }
-    }
 
     func loadClaudeSessionKeyHint() {
         claudeSessionKeyHint = ClaudeSessionKey.load().map(ClaudeSessionKey.hint)

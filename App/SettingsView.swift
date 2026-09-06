@@ -77,34 +77,33 @@ struct SettingsView: View {
                 }
             }
 
-            if model.needsClaudeSessionKey || model.hasClaudeSessionKey {
-                Section(L10n.text("settings.claudeSession", language: language)) {
-                    Text(L10n.text("settings.claudeSession.detail", language: language))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(L10n.text("settings.claudeSession.warning", language: language))
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+            // 状態で出し入れすると存在に気づけず、環境を移したときに探せない。常に出す。
+            Section(L10n.text("settings.claudeSession", language: language)) {
+                Text(L10n.text("settings.claudeSession.detail", language: language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(L10n.text("settings.claudeSession.warning", language: language))
+                    .font(.caption)
+                    .foregroundStyle(.orange)
 
-                    if let hint = model.claudeSessionKeyHint {
-                        HStack {
-                            Label(
-                                L10n.format("settings.claudeSession.saved.format", language: language, hint),
-                                systemImage: "checkmark.seal"
-                            )
-                            .font(.caption)
-                            Spacer()
-                            Button(L10n.text("settings.claudeSession.remove", language: language)) {
-                                model.removeClaudeSessionKey()
-                            }
-                            .controlSize(.small)
-                        }
-                    } else {
-                        Button(L10n.text("settings.claudeSession.signIn", language: language)) {
-                            isSigningIn = true
+                if let hint = model.claudeSessionKeyHint {
+                    HStack {
+                        Label(
+                            L10n.format("settings.claudeSession.saved.format", language: language, hint),
+                            systemImage: "checkmark.seal"
+                        )
+                        .font(.caption)
+                        Spacer()
+                        Button(L10n.text("settings.claudeSession.remove", language: language)) {
+                            model.removeClaudeSessionKey()
                         }
                         .controlSize(.small)
                     }
+                } else {
+                    Button(L10n.text("settings.claudeSession.signIn", language: language)) {
+                        isSigningIn = true
+                    }
+                    .controlSize(.small)
                 }
             }
 
