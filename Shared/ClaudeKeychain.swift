@@ -89,6 +89,24 @@ enum ClaudeKeychain {
         return root["oauthAccount"] is [String: Any]
     }
 
+    /// ターミナル版CLIが入っているか。
+    ///
+    /// 同じKeychain項目へ複数のアプリが書き込むと、macOSはpartition listを
+    /// 書き手自身へ置き換える。締め出された側は以後アクセスのたびにログイン
+    /// キーチェーンのパスワードを要求される。CLIが居るならトークンの更新は
+    /// CLIに任せ、こちらは読むだけにしてこの奪い合いを避ける。
+    /// デスクトップ版が内包するバイナリは対象外（あれはKeychainへ書かない）。
+    static func terminalCLIInstalled() -> Bool {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let candidates = [
+            URL(fileURLWithPath: "/opt/homebrew/bin/claude"),
+            URL(fileURLWithPath: "/usr/local/bin/claude"),
+            home.appendingPathComponent(".local/bin/claude"),
+            home.appendingPathComponent(".claude/local/claude"),
+        ]
+        return candidates.contains { FileManager.default.isExecutableFile(atPath: $0.path) }
+    }
+
     /// 契約プラン名（"max" など）。無い版もあるので任意項目として扱う。
     static func subscriptionType() -> String? {
         switch credentialState() {

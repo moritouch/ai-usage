@@ -112,6 +112,8 @@ enum ClaudeCollector {
             return "Claude sign-in expired and could not be refreshed; sign in to Claude Code again, then check again"
         case .terminalSignInRequired:
             return "Claude usage needs a terminal Claude Code sign-in; run claude in Terminal, then check again"
+        case .refreshDeferredToCLI:
+            return "Claude credentials expired; run claude in Terminal to refresh them, then check again"
         case .unauthorized:
             return "Claude credentials were rejected; sign in to Claude Code again"
         case .rateLimited:

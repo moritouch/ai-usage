@@ -413,7 +413,8 @@ private extension AgentUsage {
     /// ターミナルログインが要る場合は、再ログインでは直らないので文言を分ける。
     var attentionAction: AttentionAction? {
         switch note {
-        case "Claude usage needs a terminal Claude Code sign-in; run claude in Terminal, then check again":
+        case "Claude usage needs a terminal Claude Code sign-in; run claude in Terminal, then check again",
+             "Claude credentials expired; run claude in Terminal to refresh them, then check again":
             return AttentionAction(labelKey: "popover.claudeTerminalSignIn", symbol: "terminal")
         case "Claude sign-in expired and could not be refreshed; sign in to Claude Code again, then check again",
              "Claude credentials were rejected; sign in to Claude Code again",

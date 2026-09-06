@@ -82,6 +82,8 @@ enum L10n {
             key = "note.claude.signInExpired"
         case "Claude usage needs a terminal Claude Code sign-in; run claude in Terminal, then check again":
             key = "note.claude.terminalSignIn"
+        case "Claude credentials expired; run claude in Terminal to refresh them, then check again":
+            key = "note.claude.refreshDeferred"
         case "Claude credentials were rejected; sign in to Claude Code again":
             key = "note.claude.credentialsRejected"
         case "Claude usage data expired; sign in to Claude Code again, then check again":

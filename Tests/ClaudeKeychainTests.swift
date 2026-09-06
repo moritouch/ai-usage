@@ -53,6 +53,33 @@ final class ClaudeKeychainTests: XCTestCase {
         XCTAssertEqual(ClaudeKeychain.payloadShape(wrongType), .malformed)
     }
 
+    /// 同じKeychain項目へ書き込むと、macOSはpartition listを書き手自身へ置き換える。
+    /// 締め出された側は以後アクセスのたびにパスワードを求められるため、CLIが居る間は
+    /// 書き戻さない。判定はデスクトップ版が内包するバイナリを拾ってはいけない。
+    func testTerminalCLIDetectionIgnoresTheDesktopBundledBinary() {
+        let desktopBundled = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(
+                "Library/Application Support/Claude/claude-code/2.1.260/claude.app/Contents/MacOS/claude"
+            )
+        // 実機の状態に関わらず、判定対象のパスに内包バイナリが含まれないことを確かめる。
+        let installed = ClaudeKeychain.terminalCLIInstalled()
+        let onlyDesktopBundledExists = FileManager.default
+            .isExecutableFile(atPath: desktopBundled.path)
+            && !FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/claude")
+            && !FileManager.default.isExecutableFile(atPath: "/usr/local/bin/claude")
+            && !FileManager.default.isExecutableFile(
+                atPath: FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent(".local/bin/claude").path
+            )
+            && !FileManager.default.isExecutableFile(
+                atPath: FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent(".claude/local/claude").path
+            )
+        if onlyDesktopBundledExists {
+            XCTAssertFalse(installed, "デスクトップ版の内包バイナリをCLIと誤認してはいけない")
+        }
+    }
+
     func testCredentialMergeRotatesTokensAndPreservesUnknownFields() throws {
         let source: [String: Any] = [
             "claudeAiOauth": [

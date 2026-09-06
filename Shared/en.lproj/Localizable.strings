@@ -92,7 +92,7 @@
 "help.checkedExplanation" = "“Last checked” is when AI Usage attempted a refresh. A recent check can remain stale if no new valid values were obtained.";
 "help.steps" = "What to try";
 "help.claude.title" = "Claude Code";
-"help.claude.body" = "Usage comes from the credentials terminal Claude Code stores in the Keychain. The desktop app alone never writes them, so run claude in Terminal and sign in once; refreshes are automatic after that. AI Usage renews credentials near expiry, and if it reports that refresh failed, sign in again and choose Check Again. Also check your network and Keychain permission. For the statusLine source, complete a normal response in terminal Claude Code. Wait if rate-limited.";
+"help.claude.body" = "Usage comes from the credentials terminal Claude Code stores in the Keychain. The desktop app alone never writes them, so run claude in Terminal and sign in once. When terminal Claude Code is installed, AI Usage only reads those credentials and lets the CLI renew them, because if both wrote to the same Keychain item macOS would hand access to whichever wrote last and start asking for your password repeatedly. So when it reports expired credentials, run claude in Terminal. Without the terminal CLI installed, AI Usage renews them itself. Also check your network and Keychain permission. For the statusLine source, complete a normal response in terminal Claude Code. Wait if rate-limited.";
 "help.codex.title" = "Codex";
 "help.codex.body" = "Complete a normal Codex response, then check again. Checking again does not update the local session log by itself.";
 "help.grok.title" = "Grok";
@@ -134,6 +134,7 @@
 "note.claude.signInExpired" = "Your Claude Code sign-in expired and could not be refreshed. Sign in to Claude Code again, then choose Check Again.";
 "note.claude.credentialsRejected" = "Claude credentials were rejected; sign in to Claude Code again";
 "note.claude.terminalSignIn" = "Terminal Claude Code sign-in is required. Run claude in Terminal and sign in, then choose Check Again. The desktop app alone does not store the credentials this reads.";
+"note.claude.refreshDeferred" = "Claude credentials expired. Run claude in Terminal to refresh them, then choose Check Again.";
 "note.claude.dataExpired" = "Stored usage data expired. Sign in to Claude Code again, then choose Check Again.";
 "note.codex.dataExpired" = "Stored usage data expired. Complete a normal Codex response, then choose Check Again.";
 "note.grok.dataExpired" = "Stored usage data expired. Use Grok normally, then choose Check Again.";

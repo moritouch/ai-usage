@@ -40,6 +40,9 @@ actor ClaudeUsageAPI {
         /// Claudeにはログイン済みだが、CLIのOAuthトークンがKeychainに無い。
         /// デスクトップ版だけを使っている場合はこの状態のまま変わらない。
         case terminalSignInRequired
+        /// 期限切れだが、更新はターミナル版CLIに任せる。
+        /// こちらが書き戻すとCLIがKeychainのpartitionから締め出される。
+        case refreshDeferredToCLI
         case unauthorized
         case rateLimited
         case networkOrServer
@@ -74,6 +77,7 @@ actor ClaudeUsageAPI {
         case credentialUnavailable
         case credentialExpired
         case terminalSignInRequired
+        case refreshDeferredToCLI
         case unauthorized
         case forbidden
         case failed
@@ -151,6 +155,9 @@ actor ClaudeUsageAPI {
         case .terminalSignInRequired:
             recordFailure(now: now, reason: .terminalSignInRequired)
 
+        case .refreshDeferredToCLI:
+            recordFailure(now: now, reason: .refreshDeferredToCLI)
+
         case .unauthorized:
             consecutiveFailures += 1
             nextAttemptAt = now.addingTimeInterval(15 * 60)
@@ -198,6 +205,8 @@ actor ClaudeUsageAPI {
             credential = current
 
         case let .refreshable(expired):
+            // CLIが居るなら書き戻さない。奪い合いを起こさず、更新はCLIに委ねる。
+            guard !ClaudeKeychain.terminalCLIInstalled() else { return .refreshDeferredToCLI }
             switch await ClaudeOAuthRefresher.refresh(expired) {
             case let .credential(refreshed):
                 credential = refreshed
@@ -236,6 +245,7 @@ actor ClaudeUsageAPI {
         guard case .unauthorized = first, credential.refreshToken != nil else {
             return first
         }
+        guard !ClaudeKeychain.terminalCLIInstalled() else { return .refreshDeferredToCLI }
 
         // 401時はKeychainを再読込し、兄弟更新がなければ強制refreshして1回だけ再試行する。
         switch await ClaudeOAuthRefresher.refresh(credential, force: true) {
