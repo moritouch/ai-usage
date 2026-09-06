@@ -420,6 +420,12 @@ Draft ReleaseやGitHub Release assetのURLをappcastへ置かない。
 同名ファイルを差し替えず、保持期限とサポート対象を決める。公開先に旧版を残す場合は、既知の
 脆弱性を含め利用可否を明示する。
 
+アプリ名は常に`AI Usage.app`とし、退避用のversion/buildはDMGまたはZIPのファイル名に付ける。
+展開済みの`AI Usage-<version>-build<build>.app`を残すと、旧版のWidgetが登録され、
+ギャラリー名に退避用の名前が表示されることがある。旧版は公証済みDMGまたは検証済みZIPで保管し、
+更新後は`/Applications/AI Usage.app`のWidget登録、ギャラリー名が「AI Usage」であること、
+配置済みWidgetに使用量が表示されることを確認する。
+
 問題発生時は新versionの配布を停止し、影響範囲とデータ互換性を確認する。rollbackが安全なら、
 保管済みの直前正常版を元のハッシュのまま再案内し、再圧縮・再署名による差し替えはしない。
 利用者へ対象version、回避策、復旧状況を通知し、原因修正は新しいversion/buildとして再リリースする。
