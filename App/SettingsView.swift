@@ -55,6 +55,22 @@ struct SettingsView: View {
                                 }
                             }
                         )
+                        if agent.id == "codex", model.hasModelLimits {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Toggle(
+                                    L10n.text("settings.modelLimits", language: language),
+                                    isOn: Binding(
+                                        get: { model.showsModelLimits },
+                                        set: { model.setShowsModelLimits($0) }
+                                    )
+                                )
+                                .disabled(model.isHidden(agent.id))
+                                Text(L10n.text("settings.modelLimits.detail", language: language))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.leading, 20)
+                        }
                     }
                 }
             }

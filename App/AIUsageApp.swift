@@ -107,12 +107,29 @@ final class UsageModel: ObservableObject {
     @Published private(set) var hiddenAgentIDs: Set<String> =
         Set(UserDefaults.standard.stringArray(forKey: "hiddenAgentIDs") ?? [])
 
+    /// モデル別の補助枠（Codexのモデル専用上限など）を出すか。
+    /// 使っていないモデルの枠は0%のまま並ぶだけなので既定は伏せる。
+    @Published private(set) var showsModelLimits: Bool =
+        UserDefaults.standard.bool(forKey: "showsModelLimits")
+
+    /// 補助枠を出さない設定なら、表示前に落とす。
+    /// メニューバー・一覧・ウィジェットが同じ判断を共有できるよう1か所にまとめる。
+    private func presented(_ agents: [AgentUsage]) -> [AgentUsage] {
+        guard !showsModelLimits else { return agents }
+        return agents.map { agent in
+            guard agent.windows.contains(where: \.isSupplementary) else { return agent }
+            var copy = agent
+            copy.windows = agent.windows.filter { !$0.isSupplementary }
+            return copy
+        }
+    }
+
     /// 設定画面用。伏せたものも含む全件。
     var allAgents: [AgentUsage] { reordered(snapshot.agents, by: agentOrder) }
 
     /// 表示対象だけに絞ったスナップショット。メニューバーとウィジェットはこれを見る。
     var visibleSnapshot: UsageSnapshot {
-        let visible = reordered(snapshot.agents, by: agentOrder)
+        let visible = presented(reordered(snapshot.agents, by: agentOrder))
             .filter { !hiddenAgentIDs.contains($0.id) }
         return UsageSnapshot(
             updatedAt: snapshot.updatedAt,
@@ -124,6 +141,28 @@ final class UsageModel: ObservableObject {
     }
 
     func isHidden(_ id: String) -> Bool { hiddenAgentIDs.contains(id) }
+
+    /// 補助枠を持つエージェントが居るときだけ設定を出す。
+    var hasModelLimits: Bool {
+        snapshot.agents.contains { $0.windows.contains(where: \.isSupplementary) }
+    }
+
+    func setShowsModelLimits(_ proposed: Bool) {
+        guard proposed != showsModelLimits else { return }
+        let previous = showsModelLimits
+        showsModelLimits = proposed
+        syncOrderedAgents()
+
+        // 公開snapshotの更新が通ってから設定を確定する。伏せるほうは特に、
+        // ウィジェットに残ったままにならないことを確かめてから保存する。
+        guard publishVisible(clearOnFailure: true) else {
+            showsModelLimits = previous
+            syncOrderedAgents()
+            publishVisible()
+            return
+        }
+        UserDefaults.standard.set(proposed, forKey: "showsModelLimits")
+    }
 
     func toggleHidden(_ id: String) {
         var proposed = hiddenAgentIDs
@@ -333,7 +372,7 @@ final class UsageModel: ObservableObject {
     /// 収集結果を表示用の配列へ写す。ドラッグ中は触らない。
     private func syncOrderedAgents() {
         guard draggingID == nil else { return }
-        orderedAgents = reordered(snapshot.agents, by: agentOrder).filter {
+        orderedAgents = presented(reordered(snapshot.agents, by: agentOrder)).filter {
             $0.status != .notInstalled && !hiddenAgentIDs.contains($0.id)
         }
     }

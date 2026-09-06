@@ -56,6 +56,8 @@
 "settings.checkingAgents" = "エージェントを確認中…";
 "settings.noAgents" = "エージェント情報はまだありません。";
 "settings.notSupported" = "未対応";
+"settings.modelLimits" = "モデル別の上限も表示";
+"settings.modelLimits.detail" = "プラン全体の枠に加えて、特定モデル専用の枠（Codexの「Spark」など）を一覧に出します。使っていないモデルの枠は0%のまま並びます。";
 "settings.unsupported.format" = "%@はインストールされていますが、このMac上に使用量データを書き出さないため読み取れません。";
 "settings.general" = "一般";
 "settings.showInDock" = "Dockに表示";

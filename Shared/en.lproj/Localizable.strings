@@ -56,6 +56,8 @@
 "settings.checkingAgents" = "Checking agents…";
 "settings.noAgents" = "No agent information is available yet.";
 "settings.notSupported" = "Not supported";
+"settings.modelLimits" = "Show model-specific limits";
+"settings.modelLimits.detail" = "Lists limits that apply to one model (such as Codex's \"Spark\") alongside the plan-wide limit. A model you do not use stays at 0%.";
 "settings.unsupported.format" = "%@ are installed, but they do not write usage data anywhere on this Mac, so there is nothing to read.";
 "settings.general" = "General";
 "settings.showInDock" = "Show in Dock";
