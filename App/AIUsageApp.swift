@@ -158,8 +158,8 @@ final class UsageModel: ObservableObject {
         claudeSessionKeyHint = ClaudeSessionKey.load().map(ClaudeSessionKey.hint)
     }
 
-    func saveClaudeSessionKey(_ raw: String) {
-        guard ClaudeSessionKey.save(raw) else { return }
+    /// WebViewが鍵を保存した直後に呼ばれる。保存自体はView側で終わっている。
+    func didCaptureClaudeSessionKey() {
         loadClaudeSessionKeyHint()
         refresh(force: true)
     }

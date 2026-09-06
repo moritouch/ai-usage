@@ -3,7 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var model: UsageModel
     @ObservedObject private var updater: AppUpdater
-    @State private var sessionKeyDraft: String = ""
+    @State private var isSigningIn = false
 
     private var language: AppLanguage { model.language }
 
@@ -100,19 +100,10 @@ struct SettingsView: View {
                             .controlSize(.small)
                         }
                     } else {
-                        HStack {
-                            SecureField(
-                                L10n.text("settings.claudeSession.placeholder", language: language),
-                                text: $sessionKeyDraft
-                            )
-                            .textFieldStyle(.roundedBorder)
-                            Button(L10n.text("settings.claudeSession.save", language: language)) {
-                                model.saveClaudeSessionKey(sessionKeyDraft)
-                                sessionKeyDraft = ""
-                            }
-                            .controlSize(.small)
-                            .disabled(sessionKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        Button(L10n.text("settings.claudeSession.signIn", language: language)) {
+                            isSigningIn = true
                         }
+                        .controlSize(.small)
                     }
                 }
             }
@@ -203,6 +194,16 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 440, height: 650)
         .environment(\.locale, language.locale)
+        .sheet(isPresented: $isSigningIn) {
+            ClaudeSignInView(
+                language: language,
+                onCaptured: {
+                    isSigningIn = false
+                    model.didCaptureClaudeSessionKey()
+                },
+                onCancel: { isSigningIn = false }
+            )
+        }
     }
 
     private var currentVersion: String {
