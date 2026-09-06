@@ -372,16 +372,18 @@ struct AgentRow: View {
             if let action = agent.attentionAction {
                 // 文字リンクだけだと押せることに気づかれない。
                 // 復帰に必要な2手（案内を読む／取り直す）をその場のボタンとして出す。
+                // 塗りつぶしのtintはpopoverの半透明背景と重なると文字が沈む。
+                // 地は既定のままにして、注意の色はアイコンだけに持たせる。
                 HStack(spacing: 6) {
                     Button(action: showStaleHelp) {
-                        Label(
-                            L10n.text(action.labelKey, language: language),
-                            systemImage: action.symbol
-                        )
+                        HStack(spacing: 4) {
+                            Image(systemName: action.symbol)
+                                .foregroundStyle(.orange)
+                            Text(L10n.text(action.labelKey, language: language))
+                        }
                         .font(.caption2.weight(.semibold))
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.orange)
+                    .buttonStyle(.bordered)
 
                     Button(action: recheck) {
                         Label(

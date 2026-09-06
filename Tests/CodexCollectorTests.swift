@@ -40,6 +40,140 @@ final class CodexCollectorTests: XCTestCase {
         XCTAssertEqual(limits.plan_type, "pro")
     }
 
+    private func limits(_ raw: [String: Any]) throws -> CodexCollector.RateLimits {
+        try XCTUnwrap(CodexCollector.findRateLimits(in: ["rate_limits": raw]))
+    }
+
+    /// Codexはプラン枠とモデル別枠を同じログへ書く。最後に書かれた1件を採ると、
+    /// 直前に使ったモデル次第で表示が入れ替わってしまう。
+    /// 実ログの `premium` バケットは primary/secondary とも null で届く。
+    /// これを窓ゼロのバケットとして採用すると、表示が空になってしまう。
+    func testFindRateLimitsSkipsTheWindowlessBucket() {
+        XCTAssertNil(CodexCollector.findRateLimits(in: ["rate_limits": [
+            "limit_id": "premium",
+            "limit_name": NSNull(),
+            "primary": NSNull(),
+            "secondary": NSNull(),
+            "plan_type": "pro",
+        ] as [String: Any]]))
+    }
+
+    func testSelectBucketPrefersThePlanLimitOverANewerModelLimit() throws {
+        let plan = try limits([
+            "limit_id": "codex",
+            "plan_type": "pro",
+            "primary": ["used_percent": 99, "window_minutes": 10_080],
+        ])
+        let model = try limits([
+            "limit_id": "codex_bengalfox",
+            "limit_name": "GPT-5.3-Codex-Spark",
+            "plan_type": "pro",
+            "primary": ["used_percent": 0, "window_minutes": 300],
+            "secondary": ["used_percent": 0, "window_minutes": 10_080],
+        ])
+        // 窓なしバケットはfindRateLimitsが弾くため、selectBucket側のguardを直接突く。
+        let premium = CodexCollector.RateLimits(
+            primary: nil, secondary: nil, plan_type: "pro",
+            limit_id: "premium", limit_name: nil
+        )
+
+        let older = Date(timeIntervalSince1970: 1_788_666_200)
+        let newer = Date(timeIntervalSince1970: 1_788_666_500)
+
+        let picked = try XCTUnwrap(CodexCollector.selectBucket(from: [
+            CodexCollector.Observation(limits: model, observedAt: newer),
+            CodexCollector.Observation(limits: premium, observedAt: newer),
+            CodexCollector.Observation(limits: plan, observedAt: older),
+        ]))
+
+        XCTAssertEqual(picked.limits.limit_id, "codex")
+        XCTAssertTrue(picked.isPlanBucket)
+        XCTAssertEqual(
+            CodexCollector.usableWindows(of: picked.limits).map(\.id),
+            ["primary-w10080"]
+        )
+    }
+
+    func testSelectBucketTreatsEntriesWithoutALimitIDAsThePlanBucket() throws {
+        let legacy = try limits([
+            "plan_type": "pro",
+            "primary": ["used_percent": 42, "window_minutes": 10_080],
+        ])
+        let model = try limits([
+            "limit_id": "codex_bengalfox",
+            "plan_type": "pro",
+            "primary": ["used_percent": 0, "window_minutes": 300],
+        ])
+
+        let picked = try XCTUnwrap(CodexCollector.selectBucket(from: [
+            CodexCollector.Observation(
+                limits: model, observedAt: Date(timeIntervalSince1970: 1_788_666_500)
+            ),
+            CodexCollector.Observation(
+                limits: legacy, observedAt: Date(timeIntervalSince1970: 1_788_666_200)
+            ),
+        ]))
+
+        XCTAssertNil(picked.limits.limit_id)
+        XCTAssertTrue(picked.isPlanBucket)
+    }
+
+    func testSelectBucketSkipsBucketsWithoutUsableWindows() throws {
+        let premium = CodexCollector.RateLimits(
+            primary: nil, secondary: nil, plan_type: "pro",
+            limit_id: "premium", limit_name: nil
+        )
+
+        XCTAssertNil(CodexCollector.selectBucket(from: [
+            CodexCollector.Observation(
+                limits: premium, observedAt: Date(timeIntervalSince1970: 1_788_666_500)
+            ),
+        ]))
+    }
+
+    /// 使っていないモデルの枠は0%のままなので、代わりに出すと余裕があると誤読させる。
+    /// 数字を出さず、モデル別枠しか無いことが分かる案内へ倒す。
+    func testModelOnlyLogsProduceNoNumbersButAreDistinguishable() throws {
+        let model = try limits([
+            "limit_id": "codex_bengalfox",
+            "plan_type": "pro",
+            "primary": ["used_percent": 0, "window_minutes": 300],
+        ])
+        let observations = [
+            CodexCollector.Observation(
+                limits: model, observedAt: Date(timeIntervalSince1970: 1_788_666_500)
+            ),
+        ]
+
+        XCTAssertNil(CodexCollector.selectBucket(from: observations))
+        XCTAssertTrue(CodexCollector.hasOnlyModelBuckets(observations))
+        XCTAssertFalse(CodexCollector.hasOnlyModelBuckets([]))
+    }
+
+    func testScanTailKeepsTheNewestEntryForEachBucket() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        func line(_ id: String, _ used: Int, _ minutes: Int, _ timestamp: String) -> String {
+            #"{"type":"event_msg","timestamp":"\#(timestamp)","payload":{"type":"token_count","rate_limits":{"limit_id":"\#(id)","plan_type":"pro","primary":{"used_percent":\#(used),"window_minutes":\#(minutes)}}}}"#
+        }
+
+        let logURL = directory.appendingPathComponent("rollout-buckets.jsonl")
+        try Data([
+            line("codex", 90, 10_080, "2020-01-01T00:00:00Z"),
+            line("codex", 99, 10_080, "2020-01-01T00:01:00Z"),
+            line("codex_bengalfox", 0, 300, "2020-01-01T00:02:00Z"),
+        ].joined(separator: "\n").utf8).write(to: logURL, options: .atomic)
+
+        let hits = CodexCollector.scanTail(of: logURL)
+
+        XCTAssertEqual(Set(hits.map { $0.limits.limit_id }), ["codex", "codex_bengalfox"])
+        let plan = try XCTUnwrap(hits.first { $0.limits.limit_id == "codex" })
+        XCTAssertEqual(try XCTUnwrap(plan.limits.primary?.used_percent), 99, accuracy: 0.001)
+    }
+
     func testScanTailFallsBackPastMalformedAndInvalidLines() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -64,7 +198,7 @@ final class CodexCollectorTests: XCTestCase {
                 .write(to: logURL, options: .atomic)
 
             let hit = try XCTUnwrap(
-                CodexCollector.scanTail(of: logURL),
+                CodexCollector.scanTail(of: logURL).first,
                 "Expected fallback after \(literal)"
             )
             XCTAssertEqual(

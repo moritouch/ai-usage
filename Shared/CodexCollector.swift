@@ -19,23 +19,20 @@ enum CodexCollector {
                               status: .notInstalled, note: nil)
         }
 
-        guard let hit = latestRateLimits() else {
-            return AgentUsage(id: "codex", name: "Codex", plan: nil, windows: [],
-                              observedAt: nil, source: "session log",
-                              status: .unavailable,
-                              note: "Run Codex once to populate its session log")
+        let observations = latestObservations()
+        guard let hit = selectBucket(from: observations) else {
+            return AgentUsage(
+                id: "codex", name: "Codex",
+                plan: observations.first.flatMap { PlanLabel.normalize($0.limits.plan_type) },
+                windows: [], observedAt: nil, source: "session log",
+                status: .unavailable,
+                note: hasOnlyModelBuckets(observations)
+                    ? "Only model-specific Codex limits were found; run Codex on your plan's default model, then check again"
+                    : "Run Codex once to populate its session log"
+            )
         }
 
-        var windows: [UsageWindow] = []
-        if let primary = hit.limits.primary,
-           let window = window(from: primary, fallbackID: "primary") {
-            windows.append(window)
-        }
-        if let secondary = hit.limits.secondary,
-           let window = window(from: secondary, fallbackID: "secondary") {
-            windows.append(window)
-        }
-
+        let windows = usableWindows(of: hit.limits)
         let isStale = Date().timeIntervalSince(hit.observedAt) > 6 * 3_600
 
         return AgentUsage(
@@ -61,7 +58,26 @@ enum CodexCollector {
         let primary: Window?
         let secondary: Window?
         let plan_type: String?
+        /// Codexはプラン枠とモデル別枠を同じログへ別レコードとして書く。
+        /// 例: プラン枠は "codex"、GPT-5.3-Codex-Sparkは "codex_bengalfox"。
+        let limit_id: String?
+        let limit_name: String?
     }
+
+    /// 1バケット分の最新観測。
+    struct Observation {
+        let limits: RateLimits
+        let observedAt: Date
+
+        var bucketKey: String { limits.limit_id ?? "" }
+        /// プラン全体の枠。モデル別枠と取り違えると、使っていないモデルの0%を出してしまう。
+        var isPlanBucket: Bool {
+            guard let id = limits.limit_id else { return true }
+            return id == planLimitID
+        }
+    }
+
+    static let planLimitID = "codex"
 
     private static func window(from raw: RateLimits.Window, fallbackID: String) -> UsageWindow? {
         guard let used = raw.used_percent,
@@ -89,21 +105,54 @@ enum CodexCollector {
         )
     }
 
+    static func usableWindows(of limits: RateLimits) -> [UsageWindow] {
+        var windows: [UsageWindow] = []
+        if let primary = limits.primary,
+           let window = window(from: primary, fallbackID: "primary") {
+            windows.append(window)
+        }
+        if let secondary = limits.secondary,
+           let window = window(from: secondary, fallbackID: "secondary") {
+            windows.append(window)
+        }
+        return windows
+    }
+
+    /// 表示するバケットを決める。プラン枠だけを採り、モデル別枠は採らない。
+    ///
+    /// 「最後に書かれた1件」を採ると、直前に使ったモデル次第でプラン枠とモデル別枠が
+    /// 入れ替わる。モデル別枠は使っていなければ0%のままなので、代わりに出すと
+    /// 「余裕がある」と誤読させる。プラン枠が無いときは数字を出さず、その旨を伝える。
+    /// `limit_id`が無い旧形式のCodexもプラン枠として扱う。
+    static func selectBucket(from observations: [Observation]) -> Observation? {
+        observations
+            .filter { $0.isPlanBucket && !usableWindows(of: $0.limits).isEmpty }
+            .max { $0.observedAt < $1.observedAt }
+    }
+
+    /// プラン枠は無いがモデル別枠だけはある状態。「Codexを一度実行して」では的外れになる。
+    static func hasOnlyModelBuckets(_ observations: [Observation]) -> Bool {
+        !observations.isEmpty && observations.allSatisfy { !$0.isPlanBucket }
+    }
+
     // MARK: - ログ走査
 
-    private static func latestRateLimits() -> (limits: RateLimits, observedAt: Date)? {
-        var latest: (limits: RateLimits, observedAt: Date)?
+    /// バケットごとに最新の観測を1件ずつ集める。
+    private static func latestObservations() -> [Observation] {
+        var latest: [String: Observation] = [:]
         for file in recentSessionFiles() {
-            guard let hit = scanTail(of: file) else { continue }
             let modified = (try? FileManager.default.attributesOfItem(atPath: file.path)[.modificationDate]) as? Date
-            guard let observedAt = hit.observedAt
-                    ?? modified.flatMap(plausibleObservationDate)
-            else { continue }
-            if latest == nil || observedAt > latest!.observedAt {
-                latest = (hit.limits, observedAt)
+            for hit in scanTail(of: file) {
+                guard let observedAt = hit.observedAt
+                        ?? modified.flatMap(plausibleObservationDate)
+                else { continue }
+                let observation = Observation(limits: hit.limits, observedAt: observedAt)
+                let key = observation.bucketKey
+                if let existing = latest[key], existing.observedAt >= observedAt { continue }
+                latest[key] = observation
             }
         }
-        return latest
+        return Array(latest.values)
     }
 
     /// 更新が新しい順に最大 20 件。
@@ -126,10 +175,13 @@ enum CodexCollector {
         return found.sorted { $0.1 > $1.1 }.prefix(20).map(\.0)
     }
 
-    /// ファイル末尾を後ろから読み、最後の rate_limits を取り出す。
-    static func scanTail(of url: URL) -> (limits: RateLimits, observedAt: Date?)? {
-        guard let data = readTail(of: url, maximumBytes: tailBytes) else { return nil }
+    /// ファイル末尾を後ろから読み、`limit_id` ごとに最新の rate_limits を1件ずつ取り出す。
+    /// 末尾1件だけを返すと、直前に使ったモデルのバケットに引きずられる。
+    static func scanTail(of url: URL) -> [(limits: RateLimits, observedAt: Date?)] {
+        guard let data = readTail(of: url, maximumBytes: tailBytes) else { return [] }
 
+        var seen = Set<String>()
+        var hits: [(limits: RateLimits, observedAt: Date?)] = []
         for rawLine in data.split(separator: 0x0A).reversed() {
             guard let line = String(data: Data(rawLine), encoding: .utf8) else { continue }
             guard line.contains("\"rate_limits\"") else { continue }
@@ -141,6 +193,9 @@ enum CodexCollector {
                   let limits = findRateLimits(in: payload)
             else { continue }
 
+            // timestampが読めない行は捨てて更に遡るので、採用が確定してから既読にする。
+            guard !seen.contains(limits.limit_id ?? "") else { continue }
+
             var observedAt: Date?
             if let rawTimestamp = root["timestamp"] {
                 guard let timestamp = rawTimestamp as? String,
@@ -148,9 +203,10 @@ enum CodexCollector {
                 else { continue }
                 observedAt = parsed
             }
-            return (limits, observedAt)
+            seen.insert(limits.limit_id ?? "")
+            hits.append((limits, observedAt))
         }
-        return nil
+        return hits
     }
 
     /// オフセットが UTF-8 の途中でも、先頭の不完全な行を捨てて残りを行単位で解析する。

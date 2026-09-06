@@ -127,6 +127,7 @@
 "source.usageAPI" = "使用量API";
 "source.statusLine" = "statusLine連携";
 "note.codex.runOnce" = "Codexを一度実行してsession logを作成してください";
+"note.codex.modelLimitOnly" = "モデル別の上限しか見つかりませんでした。プラン標準のモデルでCodexを実行してから「再確認」を押してください";
 "note.grok.runOnce" = "Grokを一度実行してbilling logを作成してください";
 "note.claude.lastResponse" = "最後に成功したAPI応答を表示しています";
 "note.claude.credentialsUnavailable" = "Claudeの認証情報を利用できません。Claude Codeへログインするか、Keychainアクセスを許可してください";

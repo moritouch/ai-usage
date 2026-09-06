@@ -70,6 +70,8 @@ enum L10n {
         switch note {
         case "Run Codex once to populate its session log":
             key = "note.codex.runOnce"
+        case "Only model-specific Codex limits were found; run Codex on your plan's default model, then check again":
+            key = "note.codex.modelLimitOnly"
         case "Run Grok once to populate its billing log":
             key = "note.grok.runOnce"
         case "Showing the last successful API response":

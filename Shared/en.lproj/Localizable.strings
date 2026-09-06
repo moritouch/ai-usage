@@ -127,6 +127,7 @@
 "source.usageAPI" = "usage API";
 "source.statusLine" = "statusLine hook";
 "note.codex.runOnce" = "Run Codex once to populate its session log";
+"note.codex.modelLimitOnly" = "Only model-specific limits were found. Run Codex on your plan's default model, then choose Check Again.";
 "note.grok.runOnce" = "Run Grok once to populate its billing log";
 "note.claude.lastResponse" = "Showing the last successful API response";
 "note.claude.credentialsUnavailable" = "Claude credentials are unavailable; sign in to Claude Code or allow Keychain access";
