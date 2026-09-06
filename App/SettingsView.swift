@@ -3,6 +3,8 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var model: UsageModel
     @ObservedObject private var updater: AppUpdater
+    @State private var sessionKeyDraft: String = ""
+
     private var language: AppLanguage { model.language }
 
     init(model: UsageModel) {
@@ -70,6 +72,46 @@ struct SettingsView: View {
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.leading, 20)
+                        }
+                    }
+                }
+            }
+
+            if model.needsClaudeSessionKey || model.hasClaudeSessionKey {
+                Section(L10n.text("settings.claudeSession", language: language)) {
+                    Text(L10n.text("settings.claudeSession.detail", language: language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(L10n.text("settings.claudeSession.warning", language: language))
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+
+                    if let hint = model.claudeSessionKeyHint {
+                        HStack {
+                            Label(
+                                L10n.format("settings.claudeSession.saved.format", language: language, hint),
+                                systemImage: "checkmark.seal"
+                            )
+                            .font(.caption)
+                            Spacer()
+                            Button(L10n.text("settings.claudeSession.remove", language: language)) {
+                                model.removeClaudeSessionKey()
+                            }
+                            .controlSize(.small)
+                        }
+                    } else {
+                        HStack {
+                            SecureField(
+                                L10n.text("settings.claudeSession.placeholder", language: language),
+                                text: $sessionKeyDraft
+                            )
+                            .textFieldStyle(.roundedBorder)
+                            Button(L10n.text("settings.claudeSession.save", language: language)) {
+                                model.saveClaudeSessionKey(sessionKeyDraft)
+                                sessionKeyDraft = ""
+                            }
+                            .controlSize(.small)
+                            .disabled(sessionKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
                     }
                 }

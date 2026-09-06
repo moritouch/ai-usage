@@ -142,6 +142,34 @@ final class UsageModel: ObservableObject {
 
     func isHidden(_ id: String) -> Bool { hiddenAgentIDs.contains(id) }
 
+    /// claude.ai の session key。設定済みなら末尾4文字だけを手掛かりに出す。
+    @Published private(set) var claudeSessionKeyHint: String?
+
+    var hasClaudeSessionKey: Bool { claudeSessionKeyHint != nil }
+
+    /// Claude CodeのOAuth資格情報が無く、session keyでしか取得できない状態か。
+    var needsClaudeSessionKey: Bool {
+        snapshot.agents.contains {
+            $0.id == "claude-code" && $0.windows.isEmpty && $0.status != .notInstalled
+        }
+    }
+
+    func loadClaudeSessionKeyHint() {
+        claudeSessionKeyHint = ClaudeSessionKey.load().map(ClaudeSessionKey.hint)
+    }
+
+    func saveClaudeSessionKey(_ raw: String) {
+        guard ClaudeSessionKey.save(raw) else { return }
+        loadClaudeSessionKeyHint()
+        refresh(force: true)
+    }
+
+    func removeClaudeSessionKey() {
+        ClaudeSessionKey.remove()
+        loadClaudeSessionKeyHint()
+        refresh(force: true)
+    }
+
     /// 補助枠を持つエージェントが居るときだけ設定を出す。
     var hasModelLimits: Bool {
         snapshot.agents.contains { $0.windows.contains(where: \.isSupplementary) }
@@ -224,6 +252,7 @@ final class UsageModel: ObservableObject {
         // MenuBarExtra のポップオーバーは前面に浮くパネルとして存在するため、
         // 通常レベルの設定ウィンドウを開いてもその後ろに隠れてしまう。先に畳む。
         dismissMenuBarPopover()
+        loadClaudeSessionKeyHint()
         settingsController.show(model: self)
     }
 

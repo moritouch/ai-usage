@@ -56,6 +56,13 @@
 "settings.checkingAgents" = "エージェントを確認中…";
 "settings.noAgents" = "エージェント情報はまだありません。";
 "settings.notSupported" = "未対応";
+"settings.claudeSession" = "Claude Code（session key）";
+"settings.claudeSession.detail" = "ターミナル版Claude Codeを入れていない場合の予備手段です。claude.aiにログインした状態でブラウザのCookieからsessionKeyをコピーし、ここに貼り付けてください。値はAI Usage専用のキーチェーン項目に保存され、Claude Codeの認証情報には触れません。";
+"settings.claudeSession.warning" = "session keyはアカウント全体に有効な認証情報です。非公開のAPIを利用するため、Anthropic側の変更で使えなくなることがあります。可能ならターミナル版Claude Codeでのログインを推奨します。";
+"settings.claudeSession.placeholder" = "sessionKeyを貼り付け";
+"settings.claudeSession.save" = "保存";
+"settings.claudeSession.remove" = "削除";
+"settings.claudeSession.saved.format" = "保存済み（%@）";
 "settings.modelLimits" = "モデル別の上限も表示";
 "settings.modelLimits.detail" = "プラン全体の枠に加えて、特定モデル専用の枠（Codexの「Spark」など）を一覧に出します。使っていないモデルの枠は0%のまま並びます。";
 "settings.unsupported.format" = "%@はインストールされていますが、このMac上に使用量データを書き出さないため読み取れません。";
@@ -137,6 +144,7 @@
 "note.claude.credentialsRejected" = "Claudeの認証情報が拒否されました。Claude Codeへ再ログインしてください";
 "note.claude.terminalSignIn" = "ターミナル版Claude Codeのログインが必要です。ターミナルで`claude`を実行してログインしてから「再確認」を押してください。デスクトップ版アプリだけでは使用量を取得できません";
 "note.claude.refreshDeferred" = "Claudeの認証期限が切れました。ターミナルで`claude`を実行すると更新されます。その後「再確認」を押してください";
+"note.claude.sessionKeyRejected" = "保存したclaude.aiのsession keyが拒否されました。claude.aiにログインし直し、設定で貼り直してください";
 "note.claude.dataExpired" = "保存されていた使用量データは期限切れです。Claude Codeへ再ログインしてから「再確認」を押してください";
 "note.codex.dataExpired" = "保存されていた使用量データは期限切れです。Codexで通常の応答を完了してから「再確認」を押してください";
 "note.grok.dataExpired" = "保存されていた使用量データは期限切れです。Grokを通常利用してから「再確認」を押してください";

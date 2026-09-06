@@ -43,6 +43,8 @@ actor ClaudeUsageAPI {
         /// 期限切れだが、更新はターミナル版CLIに任せる。
         /// こちらが書き戻すとCLIがKeychainのpartitionから締め出される。
         case refreshDeferredToCLI
+        /// 設定済みのsession keyが claude.ai に拒否された。
+        case sessionKeyRejected
         case unauthorized
         case rateLimited
         case networkOrServer
@@ -81,6 +83,8 @@ actor ClaudeUsageAPI {
         case unauthorized
         case forbidden
         case failed
+        /// 設定したsession keyが拒否された。貼り直しが要る。
+        case sessionKeyRejected
     }
 
     private var cached: Cache?
@@ -158,6 +162,9 @@ actor ClaudeUsageAPI {
         case .refreshDeferredToCLI:
             recordFailure(now: now, reason: .refreshDeferredToCLI)
 
+        case .sessionKeyRejected:
+            recordFailure(now: now, reason: .sessionKeyRejected)
+
         case .unauthorized:
             consecutiveFailures += 1
             nextAttemptAt = now.addingTimeInterval(15 * 60)
@@ -223,6 +230,23 @@ actor ClaudeUsageAPI {
             }
 
         case let .unavailable(failure):
+            // OAuth資格情報が無い環境（デスクトップ版アプリのみなど）向けの任意経路。
+            // 設定されている場合だけ使い、Claude CodeのKeychain項目には触れない。
+            if let sessionKey = ClaudeSessionKey.load() {
+                switch await ClaudeWebUsageAPI.fetch(sessionKey: sessionKey) {
+                case let .success(payload):
+                    return .success(payload, plan: nil)
+                case let .failure(reason):
+                    switch reason {
+                    case .unauthorized:
+                        return .sessionKeyRejected
+                    case let .rateLimited(retryAt):
+                        return .rateLimited(retryAt: retryAt)
+                    case .challenged, .organizationUnknown, .networkOrServer:
+                        return .failed
+                    }
+                }
+            }
             switch failure {
             case .expired:
                 return .credentialExpired
@@ -303,7 +327,7 @@ actor ClaudeUsageAPI {
         }
     }
 
-    private static func validated(_ payload: Payload, now: Date) -> Payload? {
+    static func validated(_ payload: Payload, now: Date) -> Payload? {
         func validWindow(_ window: Window?) -> Window? {
             guard let window,
                   let utilization = window.utilization,

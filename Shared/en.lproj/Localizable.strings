@@ -56,6 +56,13 @@
 "settings.checkingAgents" = "Checking agents…";
 "settings.noAgents" = "No agent information is available yet.";
 "settings.notSupported" = "Not supported";
+"settings.claudeSession" = "Claude Code (session key)";
+"settings.claudeSession.detail" = "A fallback for machines without terminal Claude Code. Sign in at claude.ai, copy the sessionKey cookie from your browser, and paste it here. It is stored in a Keychain item owned by AI Usage and never touches Claude Code's own credentials.";
+"settings.claudeSession.warning" = "A session key grants access to your whole account, and this route uses a private API that Anthropic may change at any time. Signing in with terminal Claude Code is the better option where possible.";
+"settings.claudeSession.placeholder" = "Paste sessionKey";
+"settings.claudeSession.save" = "Save";
+"settings.claudeSession.remove" = "Remove";
+"settings.claudeSession.saved.format" = "Saved (%@)";
 "settings.modelLimits" = "Show model-specific limits";
 "settings.modelLimits.detail" = "Lists limits that apply to one model (such as Codex's \"Spark\") alongside the plan-wide limit. A model you do not use stays at 0%.";
 "settings.unsupported.format" = "%@ are installed, but they do not write usage data anywhere on this Mac, so there is nothing to read.";
@@ -137,6 +144,7 @@
 "note.claude.credentialsRejected" = "Claude credentials were rejected; sign in to Claude Code again";
 "note.claude.terminalSignIn" = "Terminal Claude Code sign-in is required. Run claude in Terminal and sign in, then choose Check Again. The desktop app alone does not store the credentials this reads.";
 "note.claude.refreshDeferred" = "Claude credentials expired. Run claude in Terminal to refresh them, then choose Check Again.";
+"note.claude.sessionKeyRejected" = "The saved claude.ai session key was rejected. Sign in at claude.ai and paste a new key in Settings.";
 "note.claude.dataExpired" = "Stored usage data expired. Sign in to Claude Code again, then choose Check Again.";
 "note.codex.dataExpired" = "Stored usage data expired. Complete a normal Codex response, then choose Check Again.";
 "note.grok.dataExpired" = "Stored usage data expired. Use Grok normally, then choose Check Again.";

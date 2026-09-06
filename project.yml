@@ -120,6 +120,9 @@ targets:
       - Shared/PlanLabel.swift
       - Shared/CodexCollector.swift
       - Shared/ClaudeKeychain.swift
+      - Shared/ClaudeSessionKey.swift
+      - Shared/ClaudeWebUsageAPI.swift
+      - Shared/ClaudeUsageAPI.swift
       - Shared/ClaudeOAuthRefresher.swift
       - Shared/SnapshotStore.swift
       - Shared/AppLanguage.swift
