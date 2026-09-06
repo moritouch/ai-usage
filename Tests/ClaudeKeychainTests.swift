@@ -55,29 +55,45 @@ final class ClaudeKeychainTests: XCTestCase {
 
     /// 同じKeychain項目へ書き込むと、macOSはpartition listを書き手自身へ置き換える。
     /// 締め出された側は以後アクセスのたびにパスワードを求められるため、CLIが居る間は
-    /// 書き戻さない。判定はデスクトップ版が内包するバイナリを拾ってはいけない。
+    /// 書き戻さない。デスクトップ版が内包するバイナリはKeychainへ書かないので、
+    /// これをCLIと誤認すると更新役が誰も居なくなる。
     func testTerminalCLIDetectionIgnoresTheDesktopBundledBinary() {
-        let desktopBundled = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(
-                "Library/Application Support/Claude/claude-code/2.1.260/claude.app/Contents/MacOS/claude"
-            )
-        // 実機の状態に関わらず、判定対象のパスに内包バイナリが含まれないことを確かめる。
-        let installed = ClaudeKeychain.terminalCLIInstalled()
-        let onlyDesktopBundledExists = FileManager.default
-            .isExecutableFile(atPath: desktopBundled.path)
-            && !FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/claude")
-            && !FileManager.default.isExecutableFile(atPath: "/usr/local/bin/claude")
-            && !FileManager.default.isExecutableFile(
-                atPath: FileManager.default.homeDirectoryForCurrentUser
-                    .appendingPathComponent(".local/bin/claude").path
-            )
-            && !FileManager.default.isExecutableFile(
-                atPath: FileManager.default.homeDirectoryForCurrentUser
-                    .appendingPathComponent(".claude/local/claude").path
-            )
-        if onlyDesktopBundledExists {
-            XCTAssertFalse(installed, "デスクトップ版の内包バイナリをCLIと誤認してはいけない")
+        let bundledRoot = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Claude").path
+
+        XCTAssertFalse(
+            ClaudeKeychain.terminalCLISearchPaths().contains { $0.path.hasPrefix(bundledRoot) },
+            "デスクトップ版の内包バイナリを探索対象に含めてはいけない"
+        )
+    }
+
+    /// npmのglobal installはnvm/fnm配下へ入ることがあり、固定パスだけでは取りこぼす。
+    /// 取りこぼすと「CLIが居ない」と誤判定して書き戻し、CLIを締め出してしまう。
+    func testTerminalCLIDetectionCoversVersionManagerLayouts() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let paths = ClaudeKeychain.terminalCLISearchPaths().map(\.path)
+
+        for fixed in ["/opt/homebrew/bin", "/usr/local/bin"] {
+            XCTAssertTrue(paths.contains(fixed), "\(fixed) を探索対象に含めるべき")
         }
+
+        let nvmRoot = home.appendingPathComponent(".nvm/versions/node")
+        let nvmVersions = (try? FileManager.default.contentsOfDirectory(
+            at: nvmRoot, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+        )) ?? []
+        for version in nvmVersions.prefix(64) {
+            XCTAssertTrue(
+                paths.contains(version.appendingPathComponent("bin").path),
+                "nvm配下の \(version.lastPathComponent) を探索対象に含めるべき"
+            )
+        }
+
+        let expected = ClaudeKeychain.terminalCLISearchPaths().contains {
+            FileManager.default.isExecutableFile(
+                atPath: $0.appendingPathComponent("claude").path
+            )
+        }
+        XCTAssertEqual(ClaudeKeychain.terminalCLIInstalled(), expected)
     }
 
     func testCredentialMergeRotatesTokensAndPreservesUnknownFields() throws {
