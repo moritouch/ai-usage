@@ -8,18 +8,23 @@ struct UsageWindow: Codable, Hashable, Identifiable {
     var resetsAt: Date?
     /// 窓の長さ（秒）。5 時間枠かどうかの判定と、消費ペースの計算に使う。
     var windowSeconds: TimeInterval?
+    /// プラン全体ではない補助的な枠（例: Codexのモデル別上限）。
+    /// 使っていなければ0%のままなので、見出しや要約がこれを拾うと余裕があると誤読させる。
+    /// 一覧には出すが、代表値の選定からは外す。
+    var isSupplementary: Bool
 
     init(id: String, label: String, usedPercent: Double, resetsAt: Date?,
-         windowSeconds: TimeInterval?) {
+         windowSeconds: TimeInterval?, isSupplementary: Bool = false) {
         self.id = id
         self.label = label
         self.usedPercent = Self.validPercent(usedPercent)
         self.resetsAt = Self.validDate(resetsAt)
         self.windowSeconds = Self.validWindowSeconds(windowSeconds)
+        self.isSupplementary = isSupplementary
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, label, usedPercent, resetsAt, windowSeconds
+        case id, label, usedPercent, resetsAt, windowSeconds, isSupplementary
     }
 
     init(from decoder: Decoder) throws {
@@ -39,6 +44,8 @@ struct UsageWindow: Codable, Hashable, Identifiable {
         windowSeconds = Self.validWindowSeconds(
             try values.decodeIfPresent(TimeInterval.self, forKey: .windowSeconds)
         )
+        // 旧snapshotにはこの項目が無い。既定はプラン枠扱い。
+        isSupplementary = try values.decodeIfPresent(Bool.self, forKey: .isSupplementary) ?? false
     }
 
     private static func validPercent(_ value: Double) -> Double {
@@ -111,16 +118,31 @@ struct AgentUsage: Codable, Hashable, Identifiable {
     var status: AgentStatus
     var note: String?         // 未取得時に何をすれば良いかの案内
 
+    /// 代表値の候補。補助枠しか無い場合を除き、プラン枠だけを見る。
+    var primaryWindows: [UsageWindow] {
+        let planned = windows.filter { !$0.isSupplementary }
+        return planned.isEmpty ? windows : planned
+    }
+
     /// 一番逼迫しているウィンドウ。メニューバーの要約に使う。
     var tightestWindow: UsageWindow? {
-        windows.max { $0.usedPercent < $1.usedPercent }
+        primaryWindows.max { $0.usedPercent < $1.usedPercent }
     }
 
     /// このエージェントを代表する窓。5 時間枠のような短い窓を優先する。
     var headlineWindow: UsageWindow? {
-        let short = windows.filter(\.isShortWindow)
+        let short = primaryWindows.filter(\.isShortWindow)
         if let pick = short.max(by: { $0.usedPercent < $1.usedPercent }) { return pick }
         return tightestWindow
+    }
+
+    /// 表示順。プラン枠を先に出し、その中では短い窓から並べる。
+    var displayWindows: [UsageWindow] {
+        windows.sorted { lhs, rhs in
+            if lhs.isSupplementary != rhs.isSupplementary { return !lhs.isSupplementary }
+            return (lhs.windowSeconds ?? .greatestFiniteMagnitude)
+                < (rhs.windowSeconds ?? .greatestFiniteMagnitude)
+        }
     }
 
     /// Collectorの状態と観測時刻を統合した表示用の鮮度。

@@ -94,6 +94,51 @@ final class CodexCollectorTests: XCTestCase {
         )
     }
 
+    /// モデル別枠も一覧には出すが、0%のまま放置されがちなので代表値には使わない。
+    func testModelBucketsBecomeSupplementaryWindowsAndNeverLeadTheSummary() throws {
+        let model = try limits([
+            "limit_id": "codex_bengalfox",
+            "limit_name": "GPT-5.3-Codex-Spark",
+            "plan_type": "pro",
+            "primary": ["used_percent": 0, "window_minutes": 300],
+        ])
+        let plan = try limits([
+            "limit_id": "codex",
+            "plan_type": "pro",
+            "primary": ["used_percent": 99, "window_minutes": 10_080],
+        ])
+
+        let supplementary = CodexCollector.usableWindows(of: model, supplementary: true)
+        XCTAssertEqual(supplementary.map(\.id), ["codex_bengalfox-primary-w300"])
+        XCTAssertEqual(supplementary.map(\.label), ["Spark 5h"])
+        XCTAssertTrue(supplementary.allSatisfy(\.isSupplementary))
+
+        let agent = AgentUsage(
+            id: "codex", name: "Codex", plan: "Pro",
+            windows: CodexCollector.usableWindows(of: plan) + supplementary,
+            observedAt: Date(), source: "session log", status: .ok, note: nil
+        )
+
+        // 5時間枠のほうが短いが、0%の補助枠を見出しに出すと余裕があると誤読させる。
+        XCTAssertEqual(agent.headlineWindow?.usedPercent, 99)
+        XCTAssertEqual(agent.tightestWindow?.usedPercent, 99)
+        // 一覧ではプラン枠が先、補助枠が後ろ。
+        XCTAssertEqual(agent.displayWindows.map(\.isSupplementary), [false, true])
+    }
+
+    func testShortBucketNameFallsBackToTheLimitIDWhenUnnamed() throws {
+        let unnamed = try limits([
+            "limit_id": "codex_otter",
+            "plan_type": "pro",
+            "primary": ["used_percent": 5, "window_minutes": 300],
+        ])
+        XCTAssertEqual(CodexCollector.shortBucketName(of: unnamed), "otter")
+        XCTAssertEqual(
+            CodexCollector.usableWindows(of: unnamed, supplementary: true).map(\.label),
+            ["otter 5h"]
+        )
+    }
+
     func testSelectBucketTreatsEntriesWithoutALimitIDAsThePlanBucket() throws {
         let legacy = try limits([
             "plan_type": "pro",

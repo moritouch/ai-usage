@@ -361,10 +361,7 @@ struct AgentRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(agent.windows.sorted {
-                    ($0.windowSeconds ?? .greatestFiniteMagnitude)
-                        < ($1.windowSeconds ?? .greatestFiniteMagnitude)
-                }) { window in
+                ForEach(agent.displayWindows) { window in
                     WindowBar(window: window, language: language)
                 }
             }

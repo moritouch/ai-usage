@@ -102,11 +102,8 @@ struct UsageWidgetView: View {
         var rows = 0
         for agent in orderedAgents {
             guard rows < Self.maxRows else { break }
-            let sorted = agent.windows.sorted {
-                ($0.windowSeconds ?? .greatestFiniteMagnitude)
-                    < ($1.windowSeconds ?? .greatestFiniteMagnitude)
-            }
-            let take = Array(sorted.prefix(Self.maxRows - rows))
+            // 行数に上限があるため、補助枠より先にプラン枠を採る。
+            let take = Array(agent.displayWindows.prefix(Self.maxRows - rows))
             guard !take.isEmpty else { continue }
             groups.append((agent, take))
             rows += take.count

@@ -32,7 +32,11 @@ enum CodexCollector {
             )
         }
 
-        let windows = usableWindows(of: hit.limits)
+        var windows = usableWindows(of: hit.limits)
+        // モデル別枠も一覧には出す。ただし代表値には使わない（補助枠）。
+        for other in observations where !other.isPlanBucket {
+            windows.append(contentsOf: usableWindows(of: other.limits, supplementary: true))
+        }
         let isStale = Date().timeIntervalSince(hit.observedAt) > 6 * 3_600
 
         return AgentUsage(
@@ -105,17 +109,34 @@ enum CodexCollector {
         )
     }
 
-    static func usableWindows(of limits: RateLimits) -> [UsageWindow] {
+    static func usableWindows(
+        of limits: RateLimits, supplementary: Bool = false
+    ) -> [UsageWindow] {
+        let prefix = supplementary ? (limits.limit_id ?? "model") + "-" : ""
+        let name = supplementary ? shortBucketName(of: limits) : nil
         var windows: [UsageWindow] = []
-        if let primary = limits.primary,
-           let window = window(from: primary, fallbackID: "primary") {
-            windows.append(window)
-        }
-        if let secondary = limits.secondary,
-           let window = window(from: secondary, fallbackID: "secondary") {
+        for (raw, fallbackID) in [(limits.primary, "primary"), (limits.secondary, "secondary")] {
+            guard let raw, var window = window(from: raw, fallbackID: fallbackID) else { continue }
+            if supplementary {
+                window.id = prefix + window.id
+                window.isSupplementary = true
+                if let name { window.label = "\(name) \(window.label)" }
+            }
             windows.append(window)
         }
         return windows
+    }
+
+    /// "GPT-5.3-Codex-Spark" のような表示名は長すぎるので末尾だけ使う。
+    /// 名前が無い版では `codex_bengalfox` のような内部idから接頭辞を落として使う。
+    static func shortBucketName(of limits: RateLimits) -> String? {
+        if let name = limits.limit_name, !name.isEmpty {
+            return name.split(separator: "-").last.map(String.init) ?? name
+        }
+        guard let id = limits.limit_id, !id.isEmpty else { return nil }
+        return id.hasPrefix(planLimitID + "_")
+            ? String(id.dropFirst(planLimitID.count + 1))
+            : id
     }
 
     /// 表示するバケットを決める。プラン枠だけを採り、モデル別枠は採らない。
