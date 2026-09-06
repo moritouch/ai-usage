@@ -58,7 +58,7 @@
 "settings.notSupported" = "未対応";
 "settings.claudeSession" = "Claude Code（session key）";
 "settings.claudeSession.detail" = "ターミナル版Claude Codeを入れていない場合の予備手段です。claude.aiへログインすると、使用量の取得に必要な情報だけをAI Usage専用のキーチェーン項目へ保存します。Claude Codeの認証情報には触れません。";
-"settings.claudeSession.warning" = "この方法はアカウント全体に有効な認証情報を扱い、非公開のAPIを利用します。Anthropic側の変更で使えなくなることがあります。可能ならターミナル版Claude Codeでのログインを推奨します。";
+"settings.claudeSession.warning" = "ターミナル版Claude Codeが使える環境では、そちらでのログインをおすすめします。この経路は公開されていないAPIを使うため、仕様変更で取得できなくなることがあります。";
 "settings.claudeSession.signIn" = "claude.aiへログイン";
 "settings.claudeSession.remove" = "削除";
 "settings.claudeSession.saved.format" = "設定済み（%@）";

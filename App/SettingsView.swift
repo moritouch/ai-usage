@@ -84,7 +84,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                 Text(L10n.text("settings.claudeSession.warning", language: language))
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(.secondary)
 
                 if let hint = model.claudeSessionKeyHint {
                     HStack {
