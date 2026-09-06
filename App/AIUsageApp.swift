@@ -164,6 +164,29 @@ final class UsageModel: ObservableObject {
         refresh(force: true)
     }
 
+    /// Grok Bot（cursor.com）のセッション。設定済みかどうかだけを持つ。
+    @Published private(set) var grokBotSessionHint: String?
+
+    var hasGrokBotSession: Bool { grokBotSessionHint != nil }
+
+    /// アプリが入っていない環境で設定を出しても意味がない。
+    var showsGrokBotSection: Bool { GrokBotCollector.installed || hasGrokBotSession }
+
+    func loadGrokBotSessionHint() {
+        grokBotSessionHint = GrokBotSession.load().map(GrokBotSession.hint)
+    }
+
+    func didCaptureGrokBotSession() {
+        loadGrokBotSessionHint()
+        refresh(force: true)
+    }
+
+    func removeGrokBotSession() {
+        GrokBotSession.remove()
+        loadGrokBotSessionHint()
+        refresh(force: true)
+    }
+
     /// 補助枠を持つエージェントが居るときだけ設定を出す。
     var hasModelLimits: Bool {
         snapshot.agents.contains { $0.windows.contains(where: \.isSupplementary) }
@@ -247,6 +270,7 @@ final class UsageModel: ObservableObject {
         // 通常レベルの設定ウィンドウを開いてもその後ろに隠れてしまう。先に畳む。
         dismissMenuBarPopover()
         loadClaudeSessionKeyHint()
+        loadGrokBotSessionHint()
         settingsController.show(model: self)
     }
 

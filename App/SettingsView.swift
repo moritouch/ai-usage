@@ -4,6 +4,7 @@ struct SettingsView: View {
     @ObservedObject var model: UsageModel
     @ObservedObject private var updater: AppUpdater
     @State private var isSigningIn = false
+    @State private var isSigningInGrokBot = false
 
     private var language: AppLanguage { model.language }
 
@@ -107,6 +108,37 @@ struct SettingsView: View {
                 }
             }
 
+            if model.showsGrokBotSection {
+                Section(L10n.text("settings.grokBot", language: language)) {
+                    Text(L10n.text("settings.grokBot.detail", language: language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(L10n.text("settings.grokBot.warning", language: language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if model.hasGrokBotSession {
+                        HStack {
+                            Label(
+                                L10n.text("settings.grokBot.saved", language: language),
+                                systemImage: "checkmark.seal"
+                            )
+                            .font(.caption)
+                            Spacer()
+                            Button(L10n.text("settings.grokBot.remove", language: language)) {
+                                model.removeGrokBotSession()
+                            }
+                            .controlSize(.small)
+                        }
+                    } else {
+                        Button(L10n.text("settings.grokBot.signIn", language: language)) {
+                            isSigningInGrokBot = true
+                        }
+                        .controlSize(.small)
+                    }
+                }
+            }
+
             if !UnsupportedAgents.detected.isEmpty {
                 Section(L10n.text("settings.notSupported", language: language)) {
                     Text(
@@ -194,13 +226,27 @@ struct SettingsView: View {
         .frame(width: 440, height: 650)
         .environment(\.locale, language.locale)
         .sheet(isPresented: $isSigningIn) {
-            ClaudeSignInView(
+            WebSignInView(
+                target: .claude,
                 language: language,
+                titleKey: "signIn.title",
                 onCaptured: {
                     isSigningIn = false
                     model.didCaptureClaudeSessionKey()
                 },
                 onCancel: { isSigningIn = false }
+            )
+        }
+        .sheet(isPresented: $isSigningInGrokBot) {
+            WebSignInView(
+                target: .grokBot,
+                language: language,
+                titleKey: "signIn.grokBot.title",
+                onCaptured: {
+                    isSigningInGrokBot = false
+                    model.didCaptureGrokBotSession()
+                },
+                onCancel: { isSigningInGrokBot = false }
             )
         }
     }

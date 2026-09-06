@@ -121,6 +121,9 @@ targets:
       - Shared/CodexCollector.swift
       - Shared/ClaudeKeychain.swift
       - Shared/ClaudeSessionKey.swift
+      - Shared/WebSessionStore.swift
+      - Shared/GrokBotSession.swift
+      - Shared/GrokBotCollector.swift
       - Shared/ClaudeWebUsageAPI.swift
       - Shared/ClaudeUsageAPI.swift
       - Shared/ClaudeOAuthRefresher.swift

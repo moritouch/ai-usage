@@ -62,6 +62,16 @@
 "settings.claudeSession.signIn" = "claude.aiへログイン";
 "settings.claudeSession.remove" = "削除";
 "settings.claudeSession.saved.format" = "設定済み（%@）";
+"settings.grokBot" = "Grok Bot";
+"settings.grokBot.detail" = "Grok Botは使用量をこのMac上に残さないため、cursor.aiのアカウントへログインして取得します。ログインすると、使用量の取得に必要な情報だけをAI Usage専用のキーチェーン項目へ保存します。Grok Bot自身の認証情報には触れません。";
+"settings.grokBot.warning" = "ターミナル版Grokとは別の枠です。公開されていないAPIを使うため、提供元の変更で取得できなくなることがあります。";
+"settings.grokBot.signIn" = "Grok Botのアカウントへログイン";
+"settings.grokBot.remove" = "削除";
+"settings.grokBot.saved" = "設定済み";
+"note.grokbot.signInRequired" = "設定からGrok Botのアカウントへログインすると使用量を表示します";
+"note.grokbot.rejected" = "保存したGrok Botのログインが拒否されました。設定からログインし直してください";
+"note.grokbot.unreachable" = "Grok Botの使用量へ接続できませんでした";
+"signIn.grokBot.title" = "Grok Botのアカウントへログイン";
 "signIn.title" = "claude.aiへログイン";
 "signIn.cancel" = "キャンセル";
 "signIn.detail" = "いつものログイン画面です。完了すると自動で閉じ、使用量の取得に必要な情報だけを保存します。ログイン状態はこのウインドウ内に留まり、ディスクへ残しません。";

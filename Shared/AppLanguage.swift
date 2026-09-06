@@ -74,6 +74,12 @@ enum L10n {
             key = "note.codex.modelLimitOnly"
         case "Run Grok once to populate its billing log":
             key = "note.grok.runOnce"
+        case "Sign in to Grok Bot in Settings to read its usage":
+            key = "note.grokbot.signInRequired"
+        case "The saved Grok Bot sign-in was rejected; sign in again in Settings":
+            key = "note.grokbot.rejected"
+        case "Grok Bot usage could not be reached":
+            key = "note.grokbot.unreachable"
         case "Showing the last successful API response":
             key = "note.claude.lastResponse"
         case "Claude credentials are unavailable; sign in to Claude Code or allow Keychain access":

@@ -62,6 +62,16 @@
 "settings.claudeSession.signIn" = "Sign in at claude.ai";
 "settings.claudeSession.remove" = "Remove";
 "settings.claudeSession.saved.format" = "Configured (%@)";
+"settings.grokBot" = "Grok Bot";
+"settings.grokBot.detail" = "Grok Bot keeps no usage on this Mac, so AI Usage reads it by signing in to the account behind it. Only what it needs goes into a Keychain item AI Usage owns; Grok Bot's own credentials are never touched.";
+"settings.grokBot.warning" = "This is a separate allowance from terminal Grok. It relies on an API that is not public, so it can stop working when that changes.";
+"settings.grokBot.signIn" = "Sign in to your Grok Bot account";
+"settings.grokBot.remove" = "Remove";
+"settings.grokBot.saved" = "Configured";
+"note.grokbot.signInRequired" = "Sign in to your Grok Bot account in Settings to read its usage";
+"note.grokbot.rejected" = "The saved Grok Bot sign-in was rejected. Sign in again in Settings.";
+"note.grokbot.unreachable" = "Grok Bot usage could not be reached";
+"signIn.grokBot.title" = "Sign in to your Grok Bot account";
 "signIn.title" = "Sign in at claude.ai";
 "signIn.cancel" = "Cancel";
 "signIn.detail" = "This is the usual sign-in page. It closes on its own once you finish, keeping only what is needed to read your usage. The session stays in this window and is not written to disk.";
