@@ -213,7 +213,11 @@ actor ClaudeUsageAPI {
 
         case let .refreshable(expired):
             // CLIが居るなら書き戻さない。奪い合いを起こさず、更新はCLIに委ねる。
-            guard !ClaudeKeychain.terminalCLIInstalled() else { return .refreshDeferredToCLI }
+            // ただしCLIをしばらく使っていないと期限切れのまま古い値が残るので、
+            // session keyがあるならそちらで読む。
+            if ClaudeKeychain.terminalCLIInstalled() {
+                return await sessionKeyOutcome() ?? .refreshDeferredToCLI
+            }
             switch await ClaudeOAuthRefresher.refresh(expired) {
             case let .credential(refreshed):
                 credential = refreshed
@@ -232,21 +236,8 @@ actor ClaudeUsageAPI {
         case let .unavailable(failure):
             // OAuth資格情報が無い環境（デスクトップ版アプリのみなど）向けの任意経路。
             // 設定されている場合だけ使い、Claude CodeのKeychain項目には触れない。
-            if let sessionKey = ClaudeSessionKey.load() {
-                switch await ClaudeWebUsageAPI.fetch(sessionKey: sessionKey) {
-                case let .success(payload):
-                    return .success(payload, plan: ClaudeWebUsageAPI.localPlan())
-                case let .failure(reason):
-                    switch reason {
-                    case .unauthorized:
-                        return .sessionKeyRejected
-                    case let .rateLimited(retryAt):
-                        return .rateLimited(retryAt: retryAt)
-                    case .challenged, .organizationUnknown, .networkOrServer:
-                        return .failed
-                    }
-                }
-            }
+            // ここはOAuth側に手が無い。失敗理由もsession key側のものをそのまま伝える。
+            if let outcome = await sessionKeyOutcome(reportingFailure: true) { return outcome }
             switch failure {
             case .expired:
                 return .credentialExpired
@@ -269,7 +260,9 @@ actor ClaudeUsageAPI {
         guard case .unauthorized = first, credential.refreshToken != nil else {
             return first
         }
-        guard !ClaudeKeychain.terminalCLIInstalled() else { return .refreshDeferredToCLI }
+        if ClaudeKeychain.terminalCLIInstalled() {
+            return await sessionKeyOutcome() ?? .refreshDeferredToCLI
+        }
 
         // 401時はKeychainを再読込し、兄弟更新がなければ強制refreshして1回だけ再試行する。
         switch await ClaudeOAuthRefresher.refresh(credential, force: true) {
@@ -281,13 +274,38 @@ actor ClaudeUsageAPI {
         case let .rateLimited(retryAt):
             return .rateLimited(retryAt: retryAt)
         case .unauthorized:
-            return .credentialExpired
+            return await sessionKeyOutcome() ?? .credentialExpired
         case .keychainUnavailable:
-            return .credentialUnavailable
+            return await sessionKeyOutcome() ?? .credentialUnavailable
         case .temporarilyUnavailable:
             return .failed
         case .networkOrServer:
             return .failed
+        }
+    }
+
+    /// 設定済みのsession keyで読む。未設定ならnil。
+    ///
+    /// OAuth側にまだ打つ手がある場面（CLIで更新できる、など）では、失敗しても
+    /// nilを返してOAuth側の案内を優先する。鍵が拒否されたことを伝えるべきなのは、
+    /// OAuth側に手が無く、この経路が唯一の頼りだった場合だけ。
+    private static func sessionKeyOutcome(
+        reportingFailure: Bool = false
+    ) async -> AttemptOutcome? {
+        guard let key = ClaudeSessionKey.load() else { return nil }
+        switch await ClaudeWebUsageAPI.fetch(sessionKey: key) {
+        case let .success(payload):
+            return .success(payload, plan: ClaudeWebUsageAPI.localPlan())
+        case let .failure(reason):
+            guard reportingFailure else { return nil }
+            switch reason {
+            case .unauthorized:
+                return .sessionKeyRejected
+            case let .rateLimited(retryAt):
+                return .rateLimited(retryAt: retryAt)
+            case .challenged, .organizationUnknown, .networkOrServer:
+                return .failed
+            }
         }
     }
 

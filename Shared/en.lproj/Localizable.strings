@@ -57,7 +57,7 @@
 "settings.noAgents" = "No agent information is available yet.";
 "settings.notSupported" = "Not supported";
 "settings.claudeSession" = "Claude Code (session key)";
-"settings.claudeSession.detail" = "A fallback for machines without terminal Claude Code. Sign in at claude.ai and AI Usage keeps only what it needs to read your usage, in a Keychain item it owns. Claude Code's own credentials are never touched.";
+"settings.claudeSession.detail" = "A fallback for when terminal Claude Code cannot supply the usage: it is not installed, or you have not used it in a while and its credentials have expired. Sign in at claude.ai and AI Usage keeps only what it needs to read your usage, in a Keychain item it owns. Claude Code's own credentials are never touched.";
 "settings.claudeSession.warning" = "Where terminal Claude Code is available, signing in there is the better option. This route uses an API that is not public, so it can stop working when that changes.";
 "settings.claudeSession.signIn" = "Sign in at claude.ai";
 "settings.claudeSession.remove" = "Remove";
