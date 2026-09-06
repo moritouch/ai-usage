@@ -67,18 +67,28 @@ enum ClaudeWebUsageAPI {
     }
 
     static func localOrganizationID() -> String? {
+        guard let uuid = localAccount()?["organizationUuid"] as? String,
+              isSafeIdentifier(uuid)
+        else { return nil }
+        return uuid
+    }
+
+    /// 契約プラン。claude.ai 経路では応答に含まれないため、ログイン済みの記録から拾う。
+    /// `claude_pro` のような識別子で入っているので、表示名への変換は `PlanLabel` に任せる。
+    static func localPlan() -> String? {
+        localAccount()?["organizationType"] as? String
+    }
+
+    private static func localAccount() -> [String: Any]? {
         let url = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude.json")
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
         guard let data = try? handle.read(upToCount: 4 * 1_024 * 1_024 + 1),
               data.count <= 4 * 1_024 * 1_024,
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let account = root["oauthAccount"] as? [String: Any],
-              let uuid = account["organizationUuid"] as? String,
-              isSafeIdentifier(uuid)
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { return nil }
-        return uuid
+        return root["oauthAccount"] as? [String: Any]
     }
 
     /// UUIDだけを通す。URLへ差し込む値なので経路を書き換えられないようにする。

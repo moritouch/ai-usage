@@ -235,7 +235,7 @@ actor ClaudeUsageAPI {
             if let sessionKey = ClaudeSessionKey.load() {
                 switch await ClaudeWebUsageAPI.fetch(sessionKey: sessionKey) {
                 case let .success(payload):
-                    return .success(payload, plan: nil)
+                    return .success(payload, plan: ClaudeWebUsageAPI.localPlan())
                 case let .failure(reason):
                     switch reason {
                     case .unauthorized:

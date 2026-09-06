@@ -174,6 +174,14 @@ final class UsageModelsTests: XCTestCase {
         XCTAssertEqual(window.usedPercent, 0)
     }
 
+    /// claude.ai 経路ではプランが応答に無く、ログイン記録の `claude_pro` から拾う。
+    /// 接頭辞を落として既知の等級へ寄せられることを固定する。
+    func testPlanLabelNormalizesTheLocalAccountOrganizationType() {
+        XCTAssertEqual(PlanLabel.normalize("claude_pro"), "Pro")
+        XCTAssertEqual(PlanLabel.normalize("claude_max"), "Max")
+        XCTAssertEqual(PlanLabel.normalize("claude_team"), "Team")
+    }
+
     func testPlanLabelRemovesFormatCharactersAndBoundsLength() {
         XCTAssertEqual(PlanLabel.normalize("pro\u{200B}"), "Pro")
         XCTAssertNil(PlanLabel.normalize("\u{0000}\u{200B}"))
