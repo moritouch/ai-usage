@@ -46,8 +46,11 @@ AI Usage uses the data source currently exposed by each tool; there is no common
 | **Claude Code** | Credentials that *terminal* Claude Code stores in the macOS Keychain, and Anthropic's OAuth usage endpoint | Available five-hour, weekly, and model-specific windows, reset times, and plan label | Yes |
 | **Codex** | `~/.codex/sessions/**/rollout-*.jsonl` | Available primary and secondary windows, reset times, and plan label | No; local file reading only |
 | **Grok** | `~/.grok/logs/unified.jsonl` | Current billing-period usage, period end, and subscription label | No; local file reading only |
+| **Grok Bot** | The account the app runs on, after an in-app sign-in from Settings | Current period usage, reset time, and plan label | Yes |
 
 Available windows and labels depend on the tool and plan. Codex and Grok are passive data sources: their values change only after the corresponding tool writes a newer local log entry. AI Usage does not make Codex or Grok API calls and does not consume model tokens while collecting their usage.
+
+Grok Bot draws on an allowance separate from terminal Grok's and keeps no usage on this Mac, so it is read from the account instead. Both it and the claude.ai fallback rely on endpoints their vendors do not publish, and can stop working when those change. Where terminal Claude Code is available, signing in there stays the better route.
 
 Gemini CLI and Cursor are not currently supported because the required allowance data is not available in the local sources inspected by this project.
 
