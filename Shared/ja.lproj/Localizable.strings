@@ -67,7 +67,7 @@
 "settings.grokBot.warning" = "ターミナル版Grokとは別の枠です。公開されていないAPIを使うため、提供元の変更で取得できなくなることがあります。";
 "settings.grokBot.signIn" = "Grok Botのアカウントへログイン";
 "settings.grokBot.remove" = "削除";
-"settings.grokBot.saved" = "設定済み";
+"settings.grokBot.saved.format" = "設定済み（%@）";
 "note.grokbot.signInRequired" = "設定からGrok Botのアカウントへログインすると使用量を表示します";
 "note.grokbot.rejected" = "保存したGrok Botのログインが拒否されました。設定からログインし直してください";
 "note.grokbot.unreachable" = "Grok Botの使用量へ接続できませんでした";

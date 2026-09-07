@@ -67,7 +67,7 @@
 "settings.grokBot.warning" = "This is a separate allowance from terminal Grok. It relies on an API that is not public, so it can stop working when that changes.";
 "settings.grokBot.signIn" = "Sign in to your Grok Bot account";
 "settings.grokBot.remove" = "Remove";
-"settings.grokBot.saved" = "Configured";
+"settings.grokBot.saved.format" = "Configured (%@)";
 "note.grokbot.signInRequired" = "Sign in to your Grok Bot account in Settings to read its usage";
 "note.grokbot.rejected" = "The saved Grok Bot sign-in was rejected. Sign in again in Settings.";
 "note.grokbot.unreachable" = "Grok Bot usage could not be reached";

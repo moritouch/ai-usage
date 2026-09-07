@@ -117,10 +117,10 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    if model.hasGrokBotSession {
+                    if let hint = model.grokBotSessionHint {
                         HStack {
                             Label(
-                                L10n.text("settings.grokBot.saved", language: language),
+                                L10n.format("settings.grokBot.saved.format", language: language, hint),
                                 systemImage: "checkmark.seal"
                             )
                             .font(.caption)

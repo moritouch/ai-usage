@@ -24,9 +24,21 @@ enum GrokBotSession {
     static func remove() -> Bool { store.remove() }
 
     /// 画面には全文を出さない。設定済みだと分かる程度の手掛かりだけ返す。
+    /// 保存しているのはCookieヘッダ全体だが、手掛かりとして意味があるのは
+    /// セッションCookieの値なので、そこの末尾だけを見せる。
     static func hint(for value: String) -> String {
-        let count = value.split(separator: ";").count
-        return "\(count)"
+        let tail = (sessionCookieValue(in: value) ?? value).suffix(4)
+        return tail.isEmpty ? "…" : "…\(tail)"
+    }
+
+    static func sessionCookieValue(in cookie: String) -> String? {
+        for pair in cookie.split(separator: ";") {
+            let trimmed = pair.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("WorkosCursorSessionToken=") else { continue }
+            let value = String(trimmed.dropFirst("WorkosCursorSessionToken=".count))
+            return value.isEmpty ? nil : value
+        }
+        return nil
     }
 
     static func normalized(_ raw: String) -> String {

@@ -106,6 +106,17 @@ enum GrokBotCollector {
         )
     }
 
+    /// double-submit方式のCSRF対策向け。Cookieと同じ値をヘッダにも載せる。
+    static func csrfToken(in cookie: String) -> String? {
+        for pair in cookie.split(separator: ";") {
+            let trimmed = pair.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("csrf-token=") else { continue }
+            let value = String(trimmed.dropFirst("csrf-token=".count))
+            return value.isEmpty ? nil : value
+        }
+        return nil
+    }
+
     static func parseISO8601(_ text: String) -> Date? {
         let fractional = ISO8601DateFormatter()
         fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -119,6 +130,14 @@ enum GrokBotCollector {
         request.setValue(cookie, forHTTPHeaderField: "Cookie")
         request.setValue(browserUserAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        // ブラウザからの要求と同じ体裁にする。これらが無いとCSRF対策に弾かれる。
+        request.setValue("https://cursor.com", forHTTPHeaderField: "Origin")
+        request.setValue("https://cursor.com/dashboard", forHTTPHeaderField: "Referer")
+        if let token = csrfToken(in: cookie) {
+            request.setValue(token, forHTTPHeaderField: "x-csrf-token")
+        }
+        // Cookieは手で組み立てて渡す。URLSessionの管理に任せると差し替えられる。
+        request.httpShouldHandleCookies = false
         request.timeoutInterval = 15
 
         do {
