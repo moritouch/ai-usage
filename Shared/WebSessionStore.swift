@@ -53,6 +53,24 @@ struct WebSessionStore {
         ) == errSecSuccess
     }
 
+    /// 最後に保存した時刻。セッションが切れたときに「いつログインしたか」を示す。
+    /// 中身に触れずKeychainの属性だけを読むので、値の復号は起きない。
+    func savedAt() -> Date? {
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(
+            query().merging([
+                kSecReturnAttributes as String: true,
+                kSecMatchLimit as String: kSecMatchLimitOne,
+            ]) { _, new in new } as CFDictionary,
+            &item
+        )
+        guard status == errSecSuccess,
+              let attributes = item as? [String: Any],
+              let saved = attributes[kSecAttrModificationDate as String] as? Date
+        else { return nil }
+        return saved
+    }
+
     @discardableResult
     func remove() -> Bool {
         let status = SecItemDelete(query() as CFDictionary)

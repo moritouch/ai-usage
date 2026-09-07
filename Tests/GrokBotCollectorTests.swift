@@ -49,17 +49,6 @@ final class GrokBotCollectorTests: XCTestCase {
         XCTAssertEqual(agent.status, .unavailable)
     }
 
-    /// 保存しているのはCookieヘッダ全体だが、手掛かりとして意味があるのは
-    /// セッションCookieの値。Claude側の表示と揃える。
-    func testHintShowsTheTailOfTheSessionCookieOnly() {
-        let cookie = "workos_id=abc; WorkosCursorSessionToken=longsecret9f2c; csrf-token=xyz"
-
-        XCTAssertEqual(GrokBotSession.hint(for: cookie), "…9f2c")
-        XCTAssertFalse(GrokBotSession.hint(for: cookie).contains("longsecret"))
-        XCTAssertEqual(GrokBotSession.sessionCookieValue(in: cookie), "longsecret9f2c")
-        XCTAssertNil(GrokBotSession.sessionCookieValue(in: "workos_id=abc"))
-    }
-
     /// double-submit方式のCSRF対策向け。Cookieと同じ値をヘッダにも載せる。
     func testCSRFTokenIsTakenFromTheCookie() {
         XCTAssertEqual(

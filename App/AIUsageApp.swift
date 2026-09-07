@@ -143,13 +143,14 @@ final class UsageModel: ObservableObject {
 
     func isHidden(_ id: String) -> Bool { hiddenAgentIDs.contains(id) }
 
-    /// claude.ai の session key。設定済みなら末尾4文字だけを手掛かりに出す。
-    @Published private(set) var claudeSessionKeyHint: String?
+    /// claude.ai のセッション。値そのものは出さず、いつログインしたかだけを持つ。
+    /// 末尾数文字を出しても利用者には照合する手段がなく、判断の材料にならない。
+    @Published private(set) var claudeSessionSavedAt: Date?
 
-    var hasClaudeSessionKey: Bool { claudeSessionKeyHint != nil }
+    var hasClaudeSessionKey: Bool { claudeSessionSavedAt != nil }
 
     func loadClaudeSessionKeyHint() {
-        claudeSessionKeyHint = ClaudeSessionKey.load().map(ClaudeSessionKey.hint)
+        claudeSessionSavedAt = ClaudeSessionKey.load() == nil ? nil : ClaudeSessionKey.savedAt()
     }
 
     /// WebViewが鍵を保存した直後に呼ばれる。保存自体はView側で終わっている。
@@ -164,16 +165,16 @@ final class UsageModel: ObservableObject {
         refresh(force: true)
     }
 
-    /// Grok Bot（cursor.com）のセッション。設定済みかどうかだけを持つ。
-    @Published private(set) var grokBotSessionHint: String?
+    /// Grok Bot（cursor.com）のセッション。Claudeと同じくログイン時刻だけを持つ。
+    @Published private(set) var grokBotSessionSavedAt: Date?
 
-    var hasGrokBotSession: Bool { grokBotSessionHint != nil }
+    var hasGrokBotSession: Bool { grokBotSessionSavedAt != nil }
 
     /// アプリが入っていない環境で設定を出しても意味がない。
     var showsGrokBotSection: Bool { GrokBotCollector.installed || hasGrokBotSession }
 
     func loadGrokBotSessionHint() {
-        grokBotSessionHint = GrokBotSession.load().map(GrokBotSession.hint)
+        grokBotSessionSavedAt = GrokBotSession.load() == nil ? nil : GrokBotSession.savedAt()
     }
 
     func didCaptureGrokBotSession() {

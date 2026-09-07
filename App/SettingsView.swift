@@ -8,6 +8,15 @@ struct SettingsView: View {
 
     private var language: AppLanguage { model.language }
 
+    /// 「3か月前」のように経過で見せる。日付から引き算させるより、
+    /// セッションが古いかどうかの判断に直結する。
+    private func relativeSavedAt(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = language.locale
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
     init(model: UsageModel) {
         self.model = model
         _updater = ObservedObject(wrappedValue: model.updater)
@@ -87,10 +96,14 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                if let hint = model.claudeSessionKeyHint {
+                if let savedAt = model.claudeSessionSavedAt {
                     HStack {
                         Label(
-                            L10n.format("settings.claudeSession.saved.format", language: language, hint),
+                            L10n.format(
+                                "settings.claudeSession.saved.format",
+                                language: language,
+                                relativeSavedAt(savedAt)
+                            ),
                             systemImage: "checkmark.seal"
                         )
                         .font(.caption)
@@ -117,10 +130,14 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    if let hint = model.grokBotSessionHint {
+                    if let savedAt = model.grokBotSessionSavedAt {
                         HStack {
                             Label(
-                                L10n.format("settings.grokBot.saved.format", language: language, hint),
+                                L10n.format(
+                                    "settings.grokBot.saved.format",
+                                    language: language,
+                                    relativeSavedAt(savedAt)
+                                ),
                                 systemImage: "checkmark.seal"
                             )
                             .font(.caption)

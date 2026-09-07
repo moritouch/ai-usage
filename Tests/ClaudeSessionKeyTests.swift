@@ -30,14 +30,6 @@ final class ClaudeSessionKeyTests: XCTestCase {
         XCTAssertFalse(ClaudeSessionKey.isValid(String(repeating: "c", count: 5_000)))
     }
 
-    func testHintNeverRevealsTheWholeKey() {
-        let key = String(repeating: "d", count: 40) + "9f2c"
-        let hint = ClaudeSessionKey.hint(for: key)
-
-        XCTAssertEqual(hint, "…9f2c")
-        XCTAssertFalse(hint.contains(key))
-    }
-
     /// 組織IDはURLへ差し込むので、経路を書き換えられる文字を通してはいけない。
     func testOrganizationIdentifierRejectsPathTraversal() {
         XCTAssertTrue(

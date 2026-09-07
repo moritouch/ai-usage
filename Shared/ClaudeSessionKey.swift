@@ -11,63 +11,22 @@ import Security
 /// 既定の取得経路にはせず、OAuth資格情報が無いときの任意手段として扱う。
 enum ClaudeSessionKey {
     static let service = "jp.co.forestx.aiusage.claude-session"
+    private static let store = WebSessionStore(service: service)
 
-    private static func query(account: String = NSUserName()) -> [String: Any] {
-        [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-        ]
-    }
-
-    static func load() -> String? {
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(
-            query().merging([
-                kSecReturnData as String: true,
-                kSecMatchLimit as String: kSecMatchLimitOne,
-            ]) { _, new in new } as CFDictionary,
-            &item
-        )
-        guard status == errSecSuccess, let data = item as? Data,
-              let value = String(data: data, encoding: .utf8),
-              isValid(value)
-        else { return nil }
-        return value
-    }
+    static func load() -> String? { store.load(validate: isValid) }
 
     @discardableResult
     static func save(_ raw: String) -> Bool {
         let value = normalized(raw)
-        guard isValid(value), let data = value.data(using: .utf8) else { return false }
-
-        let update = SecItemUpdate(
-            query() as CFDictionary,
-            [kSecValueData as String: data] as CFDictionary
-        )
-        if update == errSecSuccess { return true }
-        guard update == errSecItemNotFound else { return false }
-
-        return SecItemAdd(
-            query().merging([
-                kSecValueData as String: data,
-                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-            ]) { _, new in new } as CFDictionary,
-            nil
-        ) == errSecSuccess
+        guard isValid(value) else { return false }
+        return store.save(value)
     }
 
     @discardableResult
-    static func remove() -> Bool {
-        let status = SecItemDelete(query() as CFDictionary)
-        return status == errSecSuccess || status == errSecItemNotFound
-    }
+    static func remove() -> Bool { store.remove() }
 
-    /// 画面には全文を出さない。設定済みだと分かる程度の手掛かりだけ返す。
-    static func hint(for value: String) -> String {
-        let tail = value.suffix(4)
-        return tail.isEmpty ? "…" : "…\(tail)"
-    }
+    /// 最後にログインした時刻。切れたときに古さを判断できるようにする。
+    static func savedAt() -> Date? { store.savedAt() }
 
     /// `sessionKey=` 付きで貼られても、前後に空白や後続のCookieが入っても受け取れるようにする。
     static func normalized(_ raw: String) -> String {
