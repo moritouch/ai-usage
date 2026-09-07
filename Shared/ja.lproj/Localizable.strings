@@ -121,7 +121,7 @@
 "help.codex.body" = "Codexで通常の応答を完了してから再確認してください。再確認だけではローカルのsession logは更新されません。";
 "help.grok.title" = "Grok";
 "help.grok.body" = "Grokを通常利用してローカルのbilling logを更新してから再確認してください。";
-"help.widget.body" = "ウィジェットを開くだけでは収集されません。AI Usage本体を開いて再確認してください。";
+"help.widget.body" = "ウィジェットを開くだけでは収集されません。AI Usage本体を開いて再確認してください。中サイズのウィジェットは4行までを表示します。枠を複数持つエージェントは複数行を使うため、収まるのは概ね3エージェントです。表示されるのはカード順の先頭からで、変えるには設定でカードを並べ替えます。";
 "help.checkAgain.detail" = "再確認は収集をやり直しますが、CodexやGrokのログ更新、提供元のレート制限解除を強制するものではありません。";
 "help.privacy" = "サポート時にもOAuth token、Keychain内容、完全なsession log、生のstatusLineログを共有しないでください。";
 

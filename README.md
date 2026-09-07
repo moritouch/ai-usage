@@ -8,7 +8,7 @@
 
 <p align="center"><strong>AI usage, at a glance.</strong></p>
 
-AI Usage is an independent macOS menu bar app and WidgetKit extension for checking usage windows and reset times without opening each provider's dashboard. It currently supports Claude Code, Codex, and Grok, with additional tools and features planned.
+AI Usage is an independent macOS menu bar app and WidgetKit extension for checking usage windows and reset times without opening each provider's dashboard. It currently supports Claude Code, Codex, Grok, Grok Bot, and Cursor, with additional tools and features planned.
 
 See the interface and installation guide on the [AI Usage product page](https://moritouch.com/ai-usage).
 
@@ -29,7 +29,7 @@ AI Usage is distributed outside the Mac App Store. Apple notarization verifies t
 ## Features
 
 - **Menu bar status** — See the most constrained usage window at a glance, then open the popover for all available windows and reset times.
-- **Desktop widgets** — Choose an agent for a small widget or view multiple usage windows in the medium widget.
+- **Desktop widgets** — Choose an agent for a small widget or view multiple usage windows in the medium widget. The medium widget fits four quota rows, and an agent with more than one window uses more than one row, so roughly three agents fit; card order decides which ones.
 - **Freshness guidance** — A `Stale` badge explains when a displayed value cannot be confirmed as current and links to tool-specific recovery steps.
 - **Customizable display** — Show or hide agents, drag cards to reorder them, and optionally show the app in the Dock.
 - **Japanese and English** — The app and widgets share the selected language.
@@ -62,7 +62,7 @@ Gemini CLI is not currently supported because the required allowance data is not
 3. Eject the DMG and launch AI Usage from Applications.
 4. macOS may ask for access to Claude Code's Keychain item. After confirming that you installed the notarized release and its expected signer, choose **Always Allow** if you want Claude usage to refresh without repeated prompts. Declining does not prevent local Codex and Grok collection.
 5. Open Settings to select Japanese or English, choose visible agents, and adjust their order.
-6. To add a widget, right-click the desktop, choose **Edit Widgets**, and add AI Usage. Keep the main app running so it can collect and publish fresh display data to the widget.
+6. To add a widget, right-click the desktop, choose **Edit Widgets**, and add AI Usage. Keep the main app running so it can collect and publish fresh display data to the widget. The medium widget shows the first four quota rows in card order, so agents past that point do not appear; reorder the cards in Settings to change which ones do.
 
 The DMG includes a visual drag-to-Applications guide and a bilingual first-launch checklist.
 

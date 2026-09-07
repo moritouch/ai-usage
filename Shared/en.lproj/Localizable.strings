@@ -121,7 +121,7 @@
 "help.codex.body" = "Complete a normal Codex response, then check again. Checking again does not update the local session log by itself.";
 "help.grok.title" = "Grok";
 "help.grok.body" = "Use Grok normally so it can update its local billing log, then check again.";
-"help.widget.body" = "Opening the widget alone does not collect data. Open the AI Usage app and check again.";
+"help.widget.body" = "Opening the widget alone does not collect data. Open the AI Usage app and check again. The medium widget shows four quota rows. An agent with more than one window uses more than one row, so roughly three agents fit. It fills those rows in card order, so reorder the cards in Settings to change which agents appear.";
 "help.checkAgain.detail" = "Checking again retries collection, but it cannot force Codex or Grok to write new logs or bypass a provider's rate limit.";
 "help.privacy" = "For support, do not share OAuth tokens, Keychain contents, complete session logs, or raw statusLine logs.";
 
