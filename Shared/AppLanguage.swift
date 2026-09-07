@@ -80,6 +80,12 @@ enum L10n {
             key = "note.grokbot.rejected"
         case "Grok Bot usage could not be reached":
             key = "note.grokbot.unreachable"
+        case "Sign in to your Cursor account in Settings to read its usage":
+            key = "note.cursor.signInRequired"
+        case "The saved Cursor sign-in was rejected; sign in again in Settings":
+            key = "note.cursor.rejected"
+        case "Cursor usage could not be reached":
+            key = "note.cursor.unreachable"
         case "Showing the last successful API response":
             key = "note.claude.lastResponse"
         case "Claude credentials are unavailable; sign in to Claude Code or allow Keychain access":

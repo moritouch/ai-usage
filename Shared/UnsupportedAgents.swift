@@ -5,7 +5,6 @@ import Foundation
 enum UnsupportedAgents {
     private static let known: [(name: String, marker: String)] = [
         ("Gemini CLI", ".gemini"),
-        ("Cursor Agent", ".cursor"),
     ]
 
     static var detected: [String] {

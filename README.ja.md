@@ -45,11 +45,12 @@
 | **Claude Code** | Anthropic OAuth usage API | 利用可能な5時間枠・週枠・モデル別枠、リセット時刻、プラン |
 | **Codex** | `~/.codex/sessions/**/rollout-*.jsonl` | 利用可能なprimary／secondary枠、リセット時刻、プラン |
 | **Grok** | `~/.grok/logs/unified.jsonl` | 現在の請求期間の使用率、期間終了時刻、契約種別 |
-| **Grok Bot** | 設定からアプリ内でログインしたアカウント | 現在の期間の使用率、リセット時刻、契約種別 |
+| **Grok Bot** | 設定からアプリ内でログインしたCursorアカウント | 現在の期間の使用率、リセット時刻、契約種別 |
+| **Cursor** | 同じCursorアカウント（ログインは1回で両方に有効） | 現在の請求期間の使用率とリセット時刻 |
 
 CodexとGrokはMac内のローカルログを読む受動的な方式です。各ツールを利用してログが更新されるまで、表示値も更新されません。
 
-Grok Botはターミナル版Grokとは別の枠を使い、使用量をMac内に残さないため、アカウントから読み取ります。これとclaude.aiの予備手段は、いずれも提供元が公開していないエンドポイントに依存しており、仕様変更で取得できなくなることがあります。ターミナル版Claude Codeが使える環境では、そちらでのログインをおすすめします。
+Grok BotとCursorは使用量をMac内に残さないため、共通のアカウントから読み取ります。ログインは1回で両方に有効です。Grok Botの枠はターミナル版Grokとは別です。これらとclaude.aiの予備手段は、いずれも提供元が公開していないエンドポイントに依存しており、仕様変更で取得できなくなることがあります。ターミナル版Claude Codeが使える環境では、そちらでのログインをおすすめします。
 
 Claude Codeは、Claude CodeがmacOS Keychainへ保存した既存の認証情報を使って使用率を取得します。access tokenの期限が近い場合はClaude Codeと同じOAuth token endpointで安全に更新し、refresh tokenが回転した場合だけ同じKeychain項目へ書き戻します。AI Usage用のAPIキーを別途作成する必要はありません。
 

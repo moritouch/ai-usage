@@ -7,6 +7,7 @@ enum UsageCollector {
             CodexCollector.collect(),
             GrokCollector.collect(),
             await GrokBotCollector.collect(),
+            await CursorCollector.collect(),
         ]
 
         // 利用者が並べ替えた順に整える。未登録のものは元の順で後ろに残す。

@@ -165,26 +165,29 @@ final class UsageModel: ObservableObject {
         refresh(force: true)
     }
 
-    /// Grok Bot（cursor.com）のセッション。Claudeと同じくログイン時刻だけを持つ。
-    @Published private(set) var grokBotSessionSavedAt: Date?
+    /// cursor.com のセッション。Grok Bot と Cursor が共有する。
+    /// Claudeと同じく値そのものは持たず、ログイン時刻だけを見せる。
+    @Published private(set) var cursorSessionSavedAt: Date?
 
-    var hasGrokBotSession: Bool { grokBotSessionSavedAt != nil }
+    var hasCursorSession: Bool { cursorSessionSavedAt != nil }
 
-    /// アプリが入っていない環境で設定を出しても意味がない。
-    var showsGrokBotSection: Bool { GrokBotCollector.installed || hasGrokBotSession }
-
-    func loadGrokBotSessionHint() {
-        grokBotSessionSavedAt = GrokBotSession.load() == nil ? nil : GrokBotSession.savedAt()
+    /// どちらのアプリも入っていない環境で設定を出しても意味がない。
+    var showsCursorSection: Bool {
+        GrokBotCollector.installed || CursorCollector.installed || hasCursorSession
     }
 
-    func didCaptureGrokBotSession() {
-        loadGrokBotSessionHint()
+    func loadCursorSessionSavedAt() {
+        cursorSessionSavedAt = CursorSession.load() == nil ? nil : CursorSession.savedAt()
+    }
+
+    func didCaptureCursorSession() {
+        loadCursorSessionSavedAt()
         refresh(force: true)
     }
 
-    func removeGrokBotSession() {
-        GrokBotSession.remove()
-        loadGrokBotSessionHint()
+    func removeCursorSession() {
+        CursorSession.remove()
+        loadCursorSessionSavedAt()
         refresh(force: true)
     }
 
@@ -271,7 +274,7 @@ final class UsageModel: ObservableObject {
         // 通常レベルの設定ウィンドウを開いてもその後ろに隠れてしまう。先に畳む。
         dismissMenuBarPopover()
         loadClaudeSessionKeyHint()
-        loadGrokBotSessionHint()
+        loadCursorSessionSavedAt()
         settingsController.show(model: self)
     }
 

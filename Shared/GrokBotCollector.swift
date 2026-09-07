@@ -7,12 +7,6 @@ import Foundation
 /// 認証は利用者がアプリ内でログインして預けた Cookie を使う。
 /// 既存の Grok（CLI）とは別枠で、Grok Bot 自身の画面も「別です」と明記している。
 enum GrokBotCollector {
-    private static let endpoint =
-        "https://cursor.com/api/dashboard/get-sand-usage-status"
-    private static let maximumResponseBytes = 256 * 1_024
-    private static let browserUserAgent =
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
-        + "(KHTML, like Gecko) Version/18.0 Safari/605.1.15"
 
     struct Status: Decodable, Sendable {
         let usagePercent: Double?
@@ -29,7 +23,7 @@ enum GrokBotCollector {
     }
 
     static func collect() async -> AgentUsage {
-        guard let cookie = GrokBotSession.load() else {
+        guard let cookie = CursorSession.load() else {
             return AgentUsage(
                 id: "grok-bot", name: "Grok Bot", plan: nil, windows: [],
                 observedAt: nil, source: "usage API",
@@ -82,8 +76,8 @@ enum GrokBotCollector {
             )
         }
 
-        let start = status.currentPeriodStart.flatMap(parseISO8601)
-        let reset = status.nextResetTimestampUtc.flatMap(parseISO8601)
+        let start = status.currentPeriodStart.flatMap(CursorAPI.parseISO8601)
+        let reset = status.nextResetTimestampUtc.flatMap(CursorAPI.parseISO8601)
         let seconds = (start != nil && reset != nil)
             ? reset!.timeIntervalSince(start!)
             : nil
@@ -106,55 +100,15 @@ enum GrokBotCollector {
         )
     }
 
-    /// double-submit方式のCSRF対策向け。Cookieと同じ値をヘッダにも載せる。
-    static func csrfToken(in cookie: String) -> String? {
-        for pair in cookie.split(separator: ";") {
-            let trimmed = pair.trimmingCharacters(in: .whitespaces)
-            guard trimmed.hasPrefix("csrf-token=") else { continue }
-            let value = String(trimmed.dropFirst("csrf-token=".count))
-            return value.isEmpty ? nil : value
-        }
-        return nil
-    }
-
-    static func parseISO8601(_ text: String) -> Date? {
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return fractional.date(from: text) ?? ISO8601DateFormatter().date(from: text)
-    }
-
     private static func fetch(cookie: String) async -> Outcome {
-        guard let url = URL(string: endpoint) else { return .unavailable }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(cookie, forHTTPHeaderField: "Cookie")
-        request.setValue(browserUserAgent, forHTTPHeaderField: "User-Agent")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        // ブラウザからの要求と同じ体裁にする。これらが無いとCSRF対策に弾かれる。
-        request.setValue("https://cursor.com", forHTTPHeaderField: "Origin")
-        request.setValue("https://cursor.com/dashboard", forHTTPHeaderField: "Referer")
-        if let token = csrfToken(in: cookie) {
-            request.setValue(token, forHTTPHeaderField: "x-csrf-token")
-        }
-        // Cookieは手で組み立てて渡す。URLSessionの管理に任せると差し替えられる。
-        request.httpShouldHandleCookies = false
-        request.timeoutInterval = 15
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse else { return .unavailable }
-            switch http.statusCode {
-            case 200:
-                guard data.count <= maximumResponseBytes,
-                      let status = try? JSONDecoder().decode(Status.self, from: data)
-                else { return .unavailable }
-                return .status(status)
-            case 401, 403:
-                return .unauthorized
-            default:
-                return .unavailable
-            }
-        } catch {
+        switch await CursorAPI.post("get-sand-usage-status", cookie: cookie) {
+        case let .body(data):
+            guard let status = try? JSONDecoder().decode(Status.self, from: data)
+            else { return .unavailable }
+            return .status(status)
+        case .unauthorized:
+            return .unauthorized
+        case .unavailable:
             return .unavailable
         }
     }

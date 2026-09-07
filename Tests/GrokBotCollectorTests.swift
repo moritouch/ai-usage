@@ -2,6 +2,11 @@ import Foundation
 import XCTest
 
 final class GrokBotCollectorTests: XCTestCase {
+    /// Grok Bot と Cursor は同じアカウントで動くため、保存先も1つで足りる。
+    func testBothRoutesShareOneStoredSession() {
+        XCTAssertEqual(CursorSession.service, "jp.co.forestx.aiusage.grokbot-session")
+    }
+
     private func status(_ raw: [String: Any]) throws -> GrokBotCollector.Status {
         let data = try JSONSerialization.data(withJSONObject: raw)
         return try JSONDecoder().decode(GrokBotCollector.Status.self, from: data)
@@ -52,23 +57,23 @@ final class GrokBotCollectorTests: XCTestCase {
     /// double-submit方式のCSRF対策向け。Cookieと同じ値をヘッダにも載せる。
     func testCSRFTokenIsTakenFromTheCookie() {
         XCTAssertEqual(
-            GrokBotCollector.csrfToken(in: "a=1; csrf-token=tok123; b=2"),
+            CursorAPI.csrfToken(in: "a=1; csrf-token=tok123; b=2"),
             "tok123"
         )
-        XCTAssertNil(GrokBotCollector.csrfToken(in: "a=1; b=2"))
-        XCTAssertNil(GrokBotCollector.csrfToken(in: "csrf-token="))
+        XCTAssertNil(CursorAPI.csrfToken(in: "a=1; b=2"))
+        XCTAssertNil(CursorAPI.csrfToken(in: "csrf-token="))
     }
 
     /// Cookieヘッダへ差し込む値なので、改行を通すとヘッダを分割されてしまう。
     func testSessionValidationRejectsHeaderBreakingValues() {
         let valid = "WorkosCursorSessionToken=abc123; workos_id=xyz"
-        XCTAssertTrue(GrokBotSession.isValid(valid))
-        XCTAssertEqual(GrokBotSession.normalized("  a=1 ;; b=2 ; junk ; "), "a=1; b=2")
+        XCTAssertTrue(CursorSession.isValid(valid))
+        XCTAssertEqual(CursorSession.normalized("  a=1 ;; b=2 ; junk ; "), "a=1; b=2")
 
-        XCTAssertFalse(GrokBotSession.isValid(""))
-        XCTAssertFalse(GrokBotSession.isValid("nocookievalue"))
-        XCTAssertFalse(GrokBotSession.isValid("a=1\nSet-Cookie: evil=1"))
-        XCTAssertFalse(GrokBotSession.isValid(String(repeating: "a=1; ", count: 3_000)))
+        XCTAssertFalse(CursorSession.isValid(""))
+        XCTAssertFalse(CursorSession.isValid("nocookievalue"))
+        XCTAssertFalse(CursorSession.isValid("a=1\nSet-Cookie: evil=1"))
+        XCTAssertFalse(CursorSession.isValid(String(repeating: "a=1; ", count: 3_000)))
     }
 }
 

@@ -4,7 +4,7 @@ struct SettingsView: View {
     @ObservedObject var model: UsageModel
     @ObservedObject private var updater: AppUpdater
     @State private var isSigningIn = false
-    @State private var isSigningInGrokBot = false
+    @State private var isSigningInCursor = false
 
     private var language: AppLanguage { model.language }
 
@@ -121,20 +121,20 @@ struct SettingsView: View {
                 }
             }
 
-            if model.showsGrokBotSection {
-                Section(L10n.text("settings.grokBot", language: language)) {
-                    Text(L10n.text("settings.grokBot.detail", language: language))
+            if model.showsCursorSection {
+                Section(L10n.text("settings.cursorAccount", language: language)) {
+                    Text(L10n.text("settings.cursorAccount.detail", language: language))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(L10n.text("settings.grokBot.warning", language: language))
+                    Text(L10n.text("settings.cursorAccount.warning", language: language))
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    if let savedAt = model.grokBotSessionSavedAt {
+                    if let savedAt = model.cursorSessionSavedAt {
                         HStack {
                             Label(
                                 L10n.format(
-                                    "settings.grokBot.saved.format",
+                                    "settings.cursorAccount.saved.format",
                                     language: language,
                                     relativeSavedAt(savedAt)
                                 ),
@@ -142,14 +142,14 @@ struct SettingsView: View {
                             )
                             .font(.caption)
                             Spacer()
-                            Button(L10n.text("settings.grokBot.remove", language: language)) {
-                                model.removeGrokBotSession()
+                            Button(L10n.text("settings.cursorAccount.remove", language: language)) {
+                                model.removeCursorSession()
                             }
                             .controlSize(.small)
                         }
                     } else {
-                        Button(L10n.text("settings.grokBot.signIn", language: language)) {
-                            isSigningInGrokBot = true
+                        Button(L10n.text("settings.cursorAccount.signIn", language: language)) {
+                            isSigningInCursor = true
                         }
                         .controlSize(.small)
                     }
@@ -254,16 +254,16 @@ struct SettingsView: View {
                 onCancel: { isSigningIn = false }
             )
         }
-        .sheet(isPresented: $isSigningInGrokBot) {
+        .sheet(isPresented: $isSigningInCursor) {
             WebSignInView(
-                target: .grokBot,
+                target: .cursorAccount,
                 language: language,
-                titleKey: "signIn.grokBot.title",
+                titleKey: "signIn.cursorAccount.title",
                 onCaptured: {
-                    isSigningInGrokBot = false
-                    model.didCaptureGrokBotSession()
+                    isSigningInCursor = false
+                    model.didCaptureCursorSession()
                 },
-                onCancel: { isSigningInGrokBot = false }
+                onCancel: { isSigningInCursor = false }
             )
         }
     }

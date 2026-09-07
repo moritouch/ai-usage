@@ -122,7 +122,9 @@ targets:
       - Shared/ClaudeKeychain.swift
       - Shared/ClaudeSessionKey.swift
       - Shared/WebSessionStore.swift
-      - Shared/GrokBotSession.swift
+      - Shared/CursorSession.swift
+      - Shared/CursorAPI.swift
+      - Shared/CursorCollector.swift
       - Shared/GrokBotCollector.swift
       - Shared/ClaudeWebUsageAPI.swift
       - Shared/ClaudeUsageAPI.swift

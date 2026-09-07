@@ -1,11 +1,13 @@
 import Foundation
 
-/// Grok Bot（cursor.com 基盤）のセッション。
+/// cursor.com のセッション。Grok Bot と Cursor はどちらもこのアカウントで動くため、
+/// ログインは 1 回で両方に効く。
 ///
-/// 使用量はローカルに一切残らず、Grok Bot 自身が持つトークンは safeStorage で
-/// 暗号化されている。他アプリの暗号化ストアを開けにいくのは避けたいので、
-/// 利用者にアプリ内で cursor.com へログインしてもらい、その Cookie だけを預かる。
-enum GrokBotSession {
+/// 使用量はローカルに一切残らず、各アプリが持つトークンは safeStorage で暗号化されている。
+/// 他アプリの暗号化ストアを開けにいくのは避けたいので、利用者にアプリ内でログインして
+/// もらい、その Cookie だけを預かる。
+enum CursorSession {
+    /// 初出時の名前のまま。変えると保存済みのログインが読めなくなる。
     static let service = "jp.co.forestx.aiusage.grokbot-session"
     private static let store = WebSessionStore(service: service)
 
