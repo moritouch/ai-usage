@@ -118,11 +118,11 @@
 "help.claude.title" = "Claude Code";
 "help.claude.body" = "使用量はターミナル版Claude CodeがKeychainへ保存した認証情報から取得します。デスクトップ版アプリだけを使っている場合はこの認証情報が作られないため、ターミナルで`claude`を一度実行してログインしてください。認証期限の更新は、ターミナル版が入っていればそちらに任せ、AI Usageは読み取りだけを行います（同じKeychain項目へ双方が書き込むと、macOSがアクセス権を書き手側へ切り替え、以後パスワードを繰り返し求められるためです）。そのため期限切れの案内が出たらターミナルで`claude`を実行してください。ターミナル版を入れていない場合はAI Usageが自動で更新します。あわせてネット接続とKeychainの許可を確認します。statusLine経由の場合は、ターミナル版Claude Codeで通常の応答を完了します。レート制限中は時間を置いてください。";
 "help.codex.title" = "Codex";
-"help.codex.body" = "Codexで通常の応答を完了してから再確認してください。再確認だけではローカルのsession logは更新されません。";
+"help.codex.body" = "使用量はCodex公式クライアントから取得します。AI Usageがcodex app-serverを起動し、/statusと同じ値を読み取ります。モデルは動かず、~/.codexへの書き込みもありません。codexはコマンドラインツールの一般的な配置先とChatGPT.appの中から探すため、CLIか公式アプリのどちらか一方があれば取得できます。どちらも無い場合はローカルのsession logを読みますが、これはターミナル版Codexを使ったときしか更新されません。その場合はCodexで通常の応答を完了してから再確認してください。再確認だけではsession logは更新されません。";
 "help.grok.title" = "Grok";
 "help.grok.body" = "Grokを通常利用してローカルのbilling logを更新してから再確認してください。";
 "help.widget.body" = "ウィジェットを開くだけでは収集されません。AI Usage本体を開いて再確認してください。中サイズのウィジェットは4行までを表示します。枠を複数持つエージェントは複数行を使うため、収まるのは概ね3エージェントです。表示されるのはカード順の先頭からで、変えるには設定でカードを並べ替えます。";
-"help.checkAgain.detail" = "再確認は収集をやり直しますが、CodexやGrokのログ更新、提供元のレート制限解除を強制するものではありません。";
+"help.checkAgain.detail" = "再確認は収集をやり直しますが、Grokのログ更新や提供元のレート制限解除を強制するものではありません。";
 "help.privacy" = "サポート時にもOAuth token、Keychain内容、完全なsession log、生のstatusLineログを共有しないでください。";
 
 "widget.description" = "AIエージェントの使用済み割合、鮮度、リセット時刻を表示します";
@@ -147,6 +147,7 @@
 "widget.empty.noData.detail" = "AI Usageを開いて更新してください。";
 
 "source.billingLog" = "billing log";
+"source.codexCLI" = "Codex CLI";
 "source.sessionLog" = "session log";
 "source.usageAPI" = "使用量API";
 "source.statusLine" = "statusLine連携";

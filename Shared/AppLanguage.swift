@@ -123,6 +123,7 @@ enum L10n {
         switch source {
         case "billing log": key = "source.billingLog"
         case "session log": key = "source.sessionLog"
+        case "Codex CLI": key = "source.codexCLI"
         case "usage API": key = "source.usageAPI"
         case "statusLine hook": key = "source.statusLine"
         default: return source

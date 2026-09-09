@@ -118,11 +118,11 @@
 "help.claude.title" = "Claude Code";
 "help.claude.body" = "Usage comes from the credentials terminal Claude Code stores in the Keychain. The desktop app alone never writes them, so run claude in Terminal and sign in once. When terminal Claude Code is installed, AI Usage only reads those credentials and lets the CLI renew them, because if both wrote to the same Keychain item macOS would hand access to whichever wrote last and start asking for your password repeatedly. So when it reports expired credentials, run claude in Terminal. Without the terminal CLI installed, AI Usage renews them itself. Also check your network and Keychain permission. For the statusLine source, complete a normal response in terminal Claude Code. Wait if rate-limited.";
 "help.codex.title" = "Codex";
-"help.codex.body" = "Complete a normal Codex response, then check again. Checking again does not update the local session log by itself.";
+"help.codex.body" = "Usage comes from the official Codex client. AI Usage runs codex app-server and reads the same values /status shows, without running a model or writing anything to ~/.codex. It looks for codex where command line tools are usually installed and inside ChatGPT.app, so installing either the CLI or the official app is enough. Without one of them it falls back to the local session log, which only terminal Codex updates: complete a normal Codex response, then check again. Checking again does not update that log by itself.";
 "help.grok.title" = "Grok";
 "help.grok.body" = "Use Grok normally so it can update its local billing log, then check again.";
 "help.widget.body" = "Opening the widget alone does not collect data. Open the AI Usage app and check again. The medium widget shows four quota rows. An agent with more than one window uses more than one row, so roughly three agents fit. It fills those rows in card order, so reorder the cards in Settings to change which agents appear.";
-"help.checkAgain.detail" = "Checking again retries collection, but it cannot force Codex or Grok to write new logs or bypass a provider's rate limit.";
+"help.checkAgain.detail" = "Checking again retries collection, but it cannot force Grok to write new logs or bypass a provider's rate limit.";
 "help.privacy" = "For support, do not share OAuth tokens, Keychain contents, complete session logs, or raw statusLine logs.";
 
 "widget.description" = "Used quota, freshness, and reset times for your AI agents";
@@ -147,6 +147,7 @@
 "widget.empty.noData.detail" = "Open AI Usage to refresh.";
 
 "source.billingLog" = "billing log";
+"source.codexCLI" = "Codex CLI";
 "source.sessionLog" = "session log";
 "source.usageAPI" = "usage API";
 "source.statusLine" = "statusLine hook";

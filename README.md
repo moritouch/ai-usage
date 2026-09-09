@@ -44,12 +44,12 @@ AI Usage uses the data source currently exposed by each tool; there is no common
 | Tool | Data source | Data shown | Usage-collection network access |
 | --- | --- | --- | --- |
 | **Claude Code** | Credentials that *terminal* Claude Code stores in the macOS Keychain, and Anthropic's OAuth usage endpoint | Available five-hour, weekly, and model-specific windows, reset times, and plan label | Yes |
-| **Codex** | `~/.codex/sessions/**/rollout-*.jsonl` | Available primary and secondary windows, reset times, and plan label | No; local file reading only |
+| **Codex** | The official Codex client itself (`codex app-server`), falling back to `~/.codex/sessions/**/rollout-*.jsonl` | Available primary and secondary windows, reset times, and plan label | Yes, made by the Codex client; no model tokens are used |
 | **Grok** | `~/.grok/logs/unified.jsonl` | Current billing-period usage, period end, and subscription label | No; local file reading only |
 | **Grok Bot** | The Cursor account it runs on, after an in-app sign-in from Settings | Current period usage, reset time, and plan label | Yes |
 | **Cursor** | The same Cursor account; one sign-in covers both | Included usage for the current billing cycle and its reset time | Yes |
 
-Available windows and labels depend on the tool and plan. Codex and Grok are passive data sources: their values change only after the corresponding tool writes a newer local log entry. AI Usage does not make Codex or Grok API calls and does not consume model tokens while collecting their usage.
+Available windows and labels depend on the tool and plan. For Codex, AI Usage runs the official client's `codex app-server` and asks it for the same values `/status` shows; it looks for `codex` where command line tools are usually installed and inside `ChatGPT.app`, so either the CLI or the official app is enough. Nothing is written to `~/.codex` and no model runs. Without that client it falls back to the session log, which only terminal Codex updates. Grok remains a passive local source: its values change only after Grok writes a newer log entry.
 
 Grok Bot and Cursor keep no usage on this Mac, so both are read from the account they share; signing in once covers them. Grok Bot's allowance is separate from terminal Grok's. These routes and the claude.ai fallback rely on endpoints their vendors do not publish, and can stop working when those change. Where terminal Claude Code is available, signing in there stays the better route.
 
@@ -57,7 +57,7 @@ Gemini CLI is not currently supported because the required allowance data is not
 
 ## Installation
 
-1. Sign in to Claude Code **from Terminal** (`claude`) if you want to monitor it. The Claude desktop app keeps its session elsewhere and never writes the credentials AI Usage reads, so a desktop-only install shows no Claude usage; one terminal sign-in is enough, and AI Usage refreshes it from then on. Complete at least one normal response in Codex or Grok so each tool can create or update its local usage log.
+1. Sign in to Claude Code **from Terminal** (`claude`) if you want to monitor it. The Claude desktop app keeps its session elsewhere and never writes the credentials AI Usage reads, so a desktop-only install shows no Claude usage; one terminal sign-in is enough, and AI Usage refreshes it from then on. Complete at least one normal response in Grok so it can create or update its local usage log.
 2. Download the notarized DMG from the [product page](https://moritouch.com/ai-usage), open it, and drag **AI Usage.app** to the **Applications** shortcut.
 3. Eject the DMG and launch AI Usage from Applications.
 4. macOS may ask for access to Claude Code's Keychain item. After confirming that you installed the notarized release and its expected signer, choose **Always Allow** if you want Claude usage to refresh without repeated prompts. Declining does not prevent local Codex and Grok collection.
@@ -74,7 +74,8 @@ The main app checks its sources every 60 seconds. Claude usage requests have a m
 
 For usage collection:
 
-- **Codex and Grok stay local.** AI Usage reads the relevant usage or billing entries from their local JSONL files. It does not upload those logs.
+- **Grok stays local.** AI Usage reads the relevant billing entries from its local JSONL file. It does not upload those logs.
+- **Codex is asked through its own client.** AI Usage starts `codex app-server` and reads the reply; the request to OpenAI is made by that client with the credentials it already holds. AI Usage sends nothing itself, reads no Codex credentials, and writes nothing to `~/.codex`. If the client is missing, it reads the local session log instead.
 - **Claude Code uses external HTTPS requests.** AI Usage reads the `Claude Code-credentials` Keychain item and sends its access token only to `https://api.anthropic.com/api/oauth/usage` to request usage data.
 - **Claude credentials can be refreshed.** Shortly before the access token expires—or once after an unauthorized response—AI Usage can send the refresh token to `https://platform.claude.com/v1/oauth/token`. It writes refreshed credentials back to the same Keychain item only when the stored credentials have not changed.
 - **Tokens are not copied into app data.** Access and refresh tokens are not written to AI Usage snapshots, settings, or application logs.
@@ -122,7 +123,7 @@ scripts/   Development, status-line, appcast, and release tooling
 
 ## Limitations
 
-- Codex and Grok values can lag until those tools write new local log entries. Collection failures, invalid observation times, or data older than six hours may be shown as `Stale`.
+- Codex values can lag when no Codex client is installed, and Grok values lag until Grok writes new local log entries. Collection failures, invalid observation times, or data older than six hours may be shown as `Stale`.
 - Claude Code collection depends on an OAuth usage endpoint without a confirmed public stable contract and on Claude Code's current Keychain credential format.
 - Local JSONL formats and provider plan labels can change. AI Usage validates the fields it uses, but an upstream change may temporarily make a tool unavailable.
 - Widget refresh timing is controlled by WidgetKit and is not guaranteed. The main app must remain running to collect new values.

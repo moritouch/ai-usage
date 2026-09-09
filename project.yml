@@ -119,6 +119,8 @@ targets:
       - Shared/UsageModels.swift
       - Shared/PlanLabel.swift
       - Shared/CodexCollector.swift
+      - Shared/CodexAppServer.swift
+      - Shared/CLILocator.swift
       - Shared/ClaudeKeychain.swift
       - Shared/ClaudeSessionKey.swift
       - Shared/WebSessionStore.swift

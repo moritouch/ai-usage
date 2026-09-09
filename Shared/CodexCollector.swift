@@ -11,20 +11,23 @@ enum CodexCollector {
     /// 各ファイルの末尾だけを見る。rate_limits は頻繁に書かれるので十分。
     private static let tailBytes = 2 * 1_024 * 1_024
 
-    static func collect() -> AgentUsage {
-        let installed = FileManager.default.fileExists(atPath: sessionsRoot.path)
-        guard installed else {
+    static func collect(force: Bool = false) -> AgentUsage {
+        // 公式クライアントに直接聞けるならそれが常に最新。ログは使った分しか増えない。
+        let live = CodexAppServer.observations(force: force)
+        let hasLogs = FileManager.default.fileExists(atPath: sessionsRoot.path)
+        guard live != nil || hasLogs || CodexAppServer.isAvailable else {
             return AgentUsage(id: "codex", name: "Codex", plan: nil, windows: [],
-                              observedAt: nil, source: "session log",
+                              observedAt: nil, source: logSource,
                               status: .notInstalled, note: nil)
         }
 
-        let observations = latestObservations()
+        let source = live == nil ? logSource : liveSource
+        let observations = live ?? latestObservations()
         guard let hit = selectBucket(from: observations) else {
             return AgentUsage(
                 id: "codex", name: "Codex",
                 plan: observations.first.flatMap { PlanLabel.normalize($0.limits.plan_type) },
-                windows: [], observedAt: nil, source: "session log",
+                windows: [], observedAt: nil, source: source,
                 status: .unavailable,
                 note: hasOnlyModelBuckets(observations)
                     ? "Only model-specific Codex limits were found; run Codex on your plan's default model, then check again"
@@ -45,11 +48,15 @@ enum CodexCollector {
             plan: PlanLabel.normalize(hit.limits.plan_type),
             windows: windows,
             observedAt: hit.observedAt,
-            source: "session log",
+            source: source,
             status: windows.isEmpty ? .unavailable : (isStale ? .stale : .ok),
             note: nil
         )
     }
+
+    /// 取得元。どちらから読めたかで案内が変わるので、表示にも残す。
+    static let liveSource = "Codex CLI"
+    static let logSource = "session log"
 
     // MARK: - JSON 形状
 

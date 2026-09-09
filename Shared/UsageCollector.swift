@@ -4,7 +4,7 @@ enum UsageCollector {
     static func collectAll(order: [String] = [], force: Bool = false) async -> UsageSnapshot {
         var agents = [
             await ClaudeCollector.collect(force: force),
-            CodexCollector.collect(),
+            CodexCollector.collect(force: force),
             GrokCollector.collect(),
             await GrokBotCollector.collect(),
             await CursorCollector.collect(),

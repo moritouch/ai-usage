@@ -106,31 +106,7 @@ enum ClaudeKeychain {
     /// `claude` を探すディレクトリ。
     /// npmのglobal installはnvm/fnm配下へ入ることがあるため、固定パスだけでは足りない。
     static func terminalCLISearchPaths() -> [URL] {
-        let manager = FileManager.default
-        let home = manager.homeDirectoryForCurrentUser
-
-        var paths = [
-            "/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin",
-        ].map(URL.init(fileURLWithPath:)) + [
-            ".local/bin", ".claude/local", ".volta/bin", ".asdf/shims",
-            ".bun/bin", ".npm-global/bin", ".npm-packages/bin", "n/bin",
-            "Library/pnpm",
-        ].map(home.appendingPathComponent)
-
-        // nvm/fnm はNodeのversionごとにbinを持つため、1段だけ展開する。
-        for (root, suffix) in [
-            (home.appendingPathComponent(".nvm/versions/node"), "bin"),
-            (home.appendingPathComponent(".fnm/node-versions"), "installation/bin"),
-            (home.appendingPathComponent("Library/Application Support/fnm/node-versions"),
-             "installation/bin"),
-        ] {
-            guard let entries = try? manager.contentsOfDirectory(
-                at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
-            ) else { continue }
-            // 版が増え続ける環境でも走査を上限で抑える。
-            paths += entries.prefix(64).map { $0.appendingPathComponent(suffix) }
-        }
-        return paths
+        CLILocator.searchPaths()
     }
 
     /// 契約プラン名（"max" など）。無い版もあるので任意項目として扱う。
