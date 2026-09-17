@@ -41,7 +41,7 @@ actor ClaudeUsageAPI {
         /// デスクトップ版だけを使っている場合はこの状態のまま変わらない。
         case terminalSignInRequired
         /// 期限切れだが、更新はターミナル版CLIに任せる。
-        /// こちらが書き戻すとCLIがKeychainのpartitionから締め出される。
+        /// refresh tokenは回転するので、2か所から更新しない。
         case refreshDeferredToCLI
         /// 設定済みのsession keyが claude.ai に拒否された。
         case sessionKeyRejected
@@ -77,6 +77,8 @@ actor ClaudeUsageAPI {
         case success(Payload, plan: String?)
         case rateLimited(retryAt: Date?)
         case credentialUnavailable
+        /// Keychainの許可ダイアログで拒否された、または応答が無かった。
+        case keychainAccessDenied
         case credentialExpired
         case terminalSignInRequired
         case refreshDeferredToCLI
@@ -152,6 +154,13 @@ actor ClaudeUsageAPI {
 
         case .credentialUnavailable:
             recordFailure(now: now, reason: .credentialUnavailable)
+
+        case .keychainAccessDenied:
+            // 定期更新のたびに聞き直すと、断ったダイアログが出続ける。
+            // 次に聞くのは再確認など利用者の操作（force）があったときだけ。
+            consecutiveFailures += 1
+            nextAttemptAt = .distantFuture
+            lastFailure = .credentialUnavailable
 
         case .credentialExpired:
             recordFailure(now: now, reason: .credentialExpired)
@@ -248,7 +257,9 @@ actor ClaudeUsageAPI {
                 return ClaudeKeychain.hasSignedInAccount()
                     ? .terminalSignInRequired
                     : .credentialUnavailable
-            case .accessDenied, .malformed:
+            case .accessDenied:
+                return .keychainAccessDenied
+            case .malformed:
                 return .credentialUnavailable
             }
         }

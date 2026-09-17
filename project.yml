@@ -122,6 +122,7 @@ targets:
       - Shared/CodexAppServer.swift
       - Shared/CLILocator.swift
       - Shared/ClaudeKeychain.swift
+      - Shared/KeychainTool.swift
       - Shared/ClaudeSessionKey.swift
       - Shared/WebSessionStore.swift
       - Shared/CursorSession.swift

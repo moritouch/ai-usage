@@ -60,7 +60,7 @@ Gemini CLI is not currently supported because the required allowance data is not
 1. Sign in to Claude Code **from Terminal** (`claude`) if you want to monitor it. The Claude desktop app keeps its session elsewhere and never writes the credentials AI Usage reads, so a desktop-only install shows no Claude usage; one terminal sign-in is enough, and AI Usage refreshes it from then on. Complete at least one normal response in Grok so it can create or update its local usage log.
 2. Download the notarized DMG from the [product page](https://moritouch.com/ai-usage), open it, and drag **AI Usage.app** to the **Applications** shortcut.
 3. Eject the DMG and launch AI Usage from Applications.
-4. macOS may ask for access to Claude Code's Keychain item. After confirming that you installed the notarized release and its expected signer, choose **Always Allow** if you want Claude usage to refresh without repeated prompts. Declining does not prevent local Codex and Grok collection.
+4. AI Usage reads Claude Code's Keychain item through macOS's `/usr/bin/security`, the same tool Claude Code itself uses, so there is normally no Keychain prompt. If one naming `security` does appear—for example when an older version of AI Usage last wrote the item—confirm that you installed the notarized release, then choose **Always Allow** once. If you decline, AI Usage does not ask again until you choose Check Again, and Codex and Grok collection continues.
 5. Open Settings to select Japanese or English, choose visible agents, and adjust their order.
 6. To add a widget, right-click the desktop, choose **Edit Widgets**, and add AI Usage. Keep the main app running so it can collect and publish fresh display data to the widget. The medium widget shows the first four quota rows in card order, so agents past that point do not appear; reorder the cards in Settings to change which ones do.
 
@@ -76,8 +76,8 @@ For usage collection:
 
 - **Grok stays local.** AI Usage reads the relevant billing entries from its local JSONL file. It does not upload those logs.
 - **Codex is asked through its own client.** AI Usage starts `codex app-server` and reads the reply; the request to OpenAI is made by that client with the credentials it already holds. AI Usage sends nothing itself, reads no Codex credentials, and writes nothing to `~/.codex`. If the client is missing, it reads the local session log instead.
-- **Claude Code uses external HTTPS requests.** AI Usage reads the `Claude Code-credentials` Keychain item and sends its access token only to `https://api.anthropic.com/api/oauth/usage` to request usage data.
-- **Claude credentials can be refreshed.** Shortly before the access token expires—or once after an unauthorized response—AI Usage can send the refresh token to `https://platform.claude.com/v1/oauth/token`. It writes refreshed credentials back to the same Keychain item only when the stored credentials have not changed.
+- **Claude Code uses external HTTPS requests.** AI Usage reads the `Claude Code-credentials` Keychain item through `/usr/bin/security`, as Claude Code does, and sends its access token only to `https://api.anthropic.com/api/oauth/usage` to request usage data.
+- **Claude credentials can be refreshed.** Shortly before the access token expires—or once after an unauthorized response—AI Usage can send the refresh token to `https://platform.claude.com/v1/oauth/token`. It writes refreshed credentials back to the same Keychain item, again through `/usr/bin/security`, only when the stored credentials have not changed and terminal Claude Code is not installed.
 - **Tokens are not copied into app data.** Access and refresh tokens are not written to AI Usage snapshots, settings, or application logs.
 
 The Claude OAuth usage endpoint is an experimental dependency: this project has not confirmed a publicly documented stable contract for it, so provider-side changes may interrupt collection without notice.

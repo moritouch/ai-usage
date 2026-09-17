@@ -22,6 +22,7 @@
 		22FDF5F15E3BA02D1B2D22E6 /* CursorSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F8405446E4449EF9B66EB28 /* CursorSession.swift */; };
 		25B37A88500E7901D30D04DA /* SnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4B7F4ACB3D10CC99776607F /* SnapshotStore.swift */; };
 		37268AE8D4B8AEE2A007004D /* UsageWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F186F49E931C3D5B82EEDE /* UsageWindow.swift */; };
+		37A95617DC25AE5C24CD9503 /* KeychainTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8BFBF2B25FE681FE85CE4F6 /* KeychainTool.swift */; };
 		3CE293262040AB7E52C9B5C9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F17790B1FDFFFA95070A3874 /* Assets.xcassets */; };
 		3DF6EE0FBA9770623928EF14 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 73E1174F61910566AD59D5F3 /* Localizable.strings */; };
 		48010217BFA25EDF10B6F598 /* UsagePopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4E76DD144F31051D5EB71B5 /* UsagePopoverView.swift */; };
@@ -32,6 +33,7 @@
 		58E2CBE0B5705C2D67A5F207 /* UsageFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A40B5B699EBE3FB14A69A96 /* UsageFormatting.swift */; };
 		5C78D085E31237FFA190D04D /* GrokCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F5A97D9A418A6C608FEC2CE /* GrokCollector.swift */; };
 		608999FD8DB8DFA95637D252 /* CLILocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA8BF4D03746C980E7D1D450 /* CLILocator.swift */; };
+		631F9AE034D84715C18C5FA7 /* KeychainToolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE7A3C98B395B488191902FA /* KeychainToolTests.swift */; };
 		64196ADC11707015AC3E1C7B /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 586D9902C9B20E1600BD813B /* AppLanguage.swift */; };
 		641D7B821455C3BA8538C868 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = D92432EE7FE4012BF990EDB5 /* Localizable.strings */; };
 		64B98A3AFCFFFC7F2897E852 /* CodexCollectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BB83ECDC5443AF8D987E78A /* CodexCollectorTests.swift */; };
@@ -47,6 +49,7 @@
 		84020F5368A0ECA8A9876251 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = E1BDABB74113B856CD721773 /* Sparkle */; };
 		850D929C12FC898F0EA2AC97 /* ClaudeOAuthRefresher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B1D2E8C879ED96092740AA /* ClaudeOAuthRefresher.swift */; };
 		85B6473275362A41520A0C97 /* AIUsageWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0301108FF86E482EF9B67B3E /* AIUsageWidget.swift */; };
+		860477CAF425E667C4718089 /* KeychainTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8BFBF2B25FE681FE85CE4F6 /* KeychainTool.swift */; };
 		890DCF763F2CB5115A03EE5F /* WebSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DE66DF8834353F9677EF4A4 /* WebSessionStore.swift */; };
 		89C06D46667207A8D918B7CC /* CodexAppServerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C813E78B378EC5E4E2FB77 /* CodexAppServerTests.swift */; };
 		8C4905D752F0219D0393F5DB /* GrokBotCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5C9BEB05A0682D372488C29 /* GrokBotCollector.swift */; };
@@ -145,6 +148,8 @@
 		A1F186F49E931C3D5B82EEDE /* UsageWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageWindow.swift; sourceTree = "<group>"; };
 		A584333E6D375DC8E959858C /* ClaudeUsageAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageAPI.swift; sourceTree = "<group>"; };
 		A770DDAB70F50020761C391A /* ClaudeCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCollector.swift; sourceTree = "<group>"; };
+		A8BFBF2B25FE681FE85CE4F6 /* KeychainTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainTool.swift; sourceTree = "<group>"; };
+		AE7A3C98B395B488191902FA /* KeychainToolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainToolTests.swift; sourceTree = "<group>"; };
 		C1CD1BC0441F80703158519A /* Third-Party-Notices.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Third-Party-Notices.txt"; sourceTree = "<group>"; };
 		C3C813E78B378EC5E4E2FB77 /* CodexAppServerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexAppServerTests.swift; sourceTree = "<group>"; };
 		C3CD58652C6F5CAEEF776DEB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -186,6 +191,7 @@
 				3BB83ECDC5443AF8D987E78A /* CodexCollectorTests.swift */,
 				413983887C30AD677C6F7905 /* CursorCollectorTests.swift */,
 				32F1CD59F59A4344010A6F79 /* GrokBotCollectorTests.swift */,
+				AE7A3C98B395B488191902FA /* KeychainToolTests.swift */,
 				4CD88C8AF1870414E57A2FB3 /* UsageModelsTests.swift */,
 			);
 			path = Tests;
@@ -267,6 +273,7 @@
 				9F8405446E4449EF9B66EB28 /* CursorSession.swift */,
 				D5C9BEB05A0682D372488C29 /* GrokBotCollector.swift */,
 				4F5A97D9A418A6C608FEC2CE /* GrokCollector.swift */,
+				A8BFBF2B25FE681FE85CE4F6 /* KeychainTool.swift */,
 				FD309D394E3C906F3E0CBCCC /* PlanLabel.swift */,
 				E4B7F4ACB3D10CC99776607F /* SnapshotStore.swift */,
 				CC4A2BEB7A2DDA64D5F09225 /* UnsupportedAgents.swift */,
@@ -479,6 +486,8 @@
 				D2E0D295433B54C1F2108982 /* CursorSession.swift in Sources */,
 				8D5B09DB911642F0EF0027BA /* GrokBotCollector.swift in Sources */,
 				1DCBEEAD3724111F940D6556 /* GrokBotCollectorTests.swift in Sources */,
+				860477CAF425E667C4718089 /* KeychainTool.swift in Sources */,
+				631F9AE034D84715C18C5FA7 /* KeychainToolTests.swift in Sources */,
 				EFC046E7030FBFB4C2628FA9 /* PlanLabel.swift in Sources */,
 				25B37A88500E7901D30D04DA /* SnapshotStore.swift in Sources */,
 				B294F4CF84B1B0784EEA179D /* UsageModels.swift in Sources */,
@@ -508,6 +517,7 @@
 				22FDF5F15E3BA02D1B2D22E6 /* CursorSession.swift in Sources */,
 				8C4905D752F0219D0393F5DB /* GrokBotCollector.swift in Sources */,
 				5C78D085E31237FFA190D04D /* GrokCollector.swift in Sources */,
+				37A95617DC25AE5C24CD9503 /* KeychainTool.swift in Sources */,
 				E1C7DE2D08BEFC475CAEEB36 /* MenuBarGauge.swift in Sources */,
 				A56C3E14FFE2C3AF3E8DE161 /* PlanLabel.swift in Sources */,
 				0815689448B9001EC8430744 /* SettingsView.swift in Sources */,

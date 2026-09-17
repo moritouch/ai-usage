@@ -3,21 +3,15 @@ import Security
 import XCTest
 
 final class ClaudeKeychainTests: XCTestCase {
-    func testKeychainQueryPinsTheClaudeServiceAndMacAccount() {
-        let query = ClaudeKeychain.keychainQuery(accountName: "fixture-user")
-
-        XCTAssertEqual(
-            query[kSecClass as String] as? String,
-            kSecClassGenericPassword as String
+    func testReadPinsTheClaudeServiceAndMacAccount() {
+        let invocation = KeychainTool.readInvocation(
+            service: ClaudeKeychain.service, account: "fixture-user"
         )
         XCTAssertEqual(
-            query[kSecAttrService as String] as? String,
-            "Claude Code-credentials"
+            invocation.arguments,
+            ["find-generic-password", "-a", "fixture-user", "-s", "Claude Code-credentials", "-w"]
         )
-        XCTAssertEqual(
-            query[kSecAttrAccount as String] as? String,
-            "fixture-user"
-        )
+        XCTAssertNil(invocation.standardInput)
     }
 
     func testKeychainCancellationAndAccessDenialAreNotRetried() {
@@ -53,10 +47,9 @@ final class ClaudeKeychainTests: XCTestCase {
         XCTAssertEqual(ClaudeKeychain.payloadShape(wrongType), .malformed)
     }
 
-    /// 同じKeychain項目へ書き込むと、macOSはpartition listを書き手自身へ置き換える。
-    /// 締め出された側は以後アクセスのたびにパスワードを求められるため、CLIが居る間は
-    /// 書き戻さない。デスクトップ版が内包するバイナリはKeychainへ書かないので、
-    /// これをCLIと誤認すると更新役が誰も居なくなる。
+    /// CLIが居る間はトークン更新をCLIに任せる（refresh tokenは回転するため、
+    /// 2か所から更新すると片方が古いtokenを掴みうる）。デスクトップ版が内包する
+    /// バイナリは更新役にならないので、これをCLIと誤認すると更新役が誰も居なくなる。
     func testTerminalCLIDetectionIgnoresTheDesktopBundledBinary() {
         let bundledRoot = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/Claude").path

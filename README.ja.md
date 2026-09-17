@@ -52,7 +52,7 @@ Codexは公式クライアントの`codex app-server`を起動し、`/status`と
 
 Grok BotとCursorは使用量をMac内に残さないため、共通のアカウントから読み取ります。ログインは1回で両方に有効です。Grok Botの枠はターミナル版Grokとは別です。これらとclaude.aiの予備手段は、いずれも提供元が公開していないエンドポイントに依存しており、仕様変更で取得できなくなることがあります。ターミナル版Claude Codeが使える環境では、そちらでのログインをおすすめします。
 
-Claude Codeは、Claude CodeがmacOS Keychainへ保存した既存の認証情報を使って使用率を取得します。access tokenの期限が近い場合はClaude Codeと同じOAuth token endpointで安全に更新し、refresh tokenが回転した場合だけ同じKeychain項目へ書き戻します。AI Usage用のAPIキーを別途作成する必要はありません。
+Claude Codeは、Claude CodeがmacOS Keychainへ保存した既存の認証情報を使って使用率を取得します。Keychainの読み書きはClaude Codeと同じく`/usr/bin/security`を通します。access tokenの期限が近い場合は、ターミナル版Claude Codeが入っていなければClaude Codeと同じOAuth token endpointで安全に更新し、refresh tokenが回転した場合だけ同じKeychain項目へ書き戻します。AI Usage用のAPIキーを別途作成する必要はありません。
 
 > [!IMPORTANT]
 > Claude CodeのOAuth usage APIは、公開された安定契約を確認できない実験的な依存先です。Claude Code側の変更により、予告なく取得できなくなる可能性があります。
@@ -64,7 +64,7 @@ Gemini CLIは、現在のところ必要な使用枠情報をローカルで安�
 1. [製品ページ](https://moritouch.com/ai-usage)から、Developer ID署名・Apple公証済みの最新DMGをダウンロードします。
 2. DMGを開き、`AI Usage.app`を`Applications`ショートカットへドラッグします。
 3. ターミナルで`claude`を実行してClaude Codeへログインします。デスクトップ版アプリはセッションを別の場所に保持し、AI Usageが読む認証情報を作らないため、デスクトップ版だけではClaudeの使用量を取得できません。ログインは一度で済み、以後はAI Usageが自動更新します。Grokは少なくとも一度通常の応答を完了し、ローカルログを更新します。
-4. AI Usageを起動します。Claude CodeのKeychain確認が表示された場合は、配布元と署名者を確認してから判断してください。継続的な更新を許可する場合は「常に許可」を選びます。
+4. AI Usageを起動します。Claude CodeのKeychain項目は、Claude Code自身と同じmacOSの`/usr/bin/security`を通して読むため、通常は確認ダイアログが出ません。旧版のAI Usageが最後に書き込んだ場合などに`security`名義の確認が出たときは、公証済みの正式版であることを確認してから一度だけ「常に許可」を選びます。拒否した場合は、再確認を押すまで自動では聞き直しません。
 5. 設定で言語、エージェントの表示、カード順、アップデート確認を選びます。
 6. 必要なら、デスクトップの「ウィジェットを編集」からAI Usageを追加します。中サイズはカード順に先頭から4行までを表示するため、それ以降のエージェントは出ません。表示するものを変えるには設定でカードを並べ替えます。
 

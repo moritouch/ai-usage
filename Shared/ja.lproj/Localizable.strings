@@ -116,7 +116,7 @@
 "help.checkedExplanation" = "「最終確認」はAI Usageが取得を試みた時刻です。直近でも新しい有効な値を取得できなければ、Staleのままです。";
 "help.steps" = "試すこと";
 "help.claude.title" = "Claude Code";
-"help.claude.body" = "使用量はターミナル版Claude CodeがKeychainへ保存した認証情報から取得します。デスクトップ版アプリだけを使っている場合はこの認証情報が作られないため、ターミナルで`claude`を一度実行してログインしてください。認証期限の更新は、ターミナル版が入っていればそちらに任せ、AI Usageは読み取りだけを行います（同じKeychain項目へ双方が書き込むと、macOSがアクセス権を書き手側へ切り替え、以後パスワードを繰り返し求められるためです）。そのため期限切れの案内が出たらターミナルで`claude`を実行してください。ターミナル版を入れていない場合はAI Usageが自動で更新します。あわせてネット接続とKeychainの許可を確認します。statusLine経由の場合は、ターミナル版Claude Codeで通常の応答を完了します。レート制限中は時間を置いてください。";
+"help.claude.body" = "使用量はターミナル版Claude CodeがKeychainへ保存した認証情報から取得します。デスクトップ版アプリだけを使っている場合はこの認証情報が作られないため、ターミナルで`claude`を一度実行してログインしてください。読み取りはClaude Code自身と同じ/usr/bin/securityを通すため、通常はKeychainの確認ダイアログが出ません。security名義の確認が出て拒否した場合は、再確認を押すまで自動では聞き直しません。認証期限の更新は、ターミナル版が入っていればそちらに任せ、AI Usageは読み取りだけを行います。そのため期限切れの案内が出たらターミナルで`claude`を実行してください。ターミナル版を入れていない場合はAI Usageが自動で更新します。あわせてネット接続を確認します。statusLine経由の場合は、ターミナル版Claude Codeで通常の応答を完了します。レート制限中は時間を置いてください。";
 "help.codex.title" = "Codex";
 "help.codex.body" = "使用量はCodex公式クライアントから取得します。AI Usageがcodex app-serverを起動し、/statusと同じ値を読み取ります。モデルは動かず、~/.codexへの書き込みもありません。codexはコマンドラインツールの一般的な配置先とChatGPT.appの中から探すため、CLIか公式アプリのどちらか一方があれば取得できます。どちらも無い場合はローカルのsession logを読みますが、これはターミナル版Codexを使ったときしか更新されません。その場合はCodexで通常の応答を完了してから再確認してください。再確認だけではsession logは更新されません。";
 "help.grok.title" = "Grok";

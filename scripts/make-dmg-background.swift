@@ -185,14 +185,14 @@ private let steps = [
     Step(
         number: "1",
         title: "準備  /  Prepare",
-        japanese: "Claude Codeへログイン。Codex・Grokは一度使う",
-        english: "Sign in to Claude Code; use Codex and Grok once."
+        japanese: "Claude Codeへログイン。Grokは一度使う",
+        english: "Sign in to Claude Code; use Grok once."
     ),
     Step(
         number: "2",
         title: "自動確認  /  Automatic",
-        japanese: "AIツールを自動検出。継続利用はKeychainで「常に許可」",
-        english: "AI tools are detected. Choose Always Allow for ongoing access."
+        japanese: "AIツールを自動検出し、使用量を読み取り",
+        english: "AI tools are detected and their usage is read automatically."
     ),
     Step(
         number: "3",

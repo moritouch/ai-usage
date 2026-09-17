@@ -5,8 +5,7 @@ import Security
 ///
 /// 読むのは利用者本人のトークンで、送り先は Anthropic の usage エンドポイントのみ。
 /// Claude Code の `/usage` と同じことをアプリ側から行うための入口。
-/// 別アプリからの参照になるため初回は macOS が許可ダイアログを出す。
-/// 「常に許可」を選べば以降は無人で読める。
+/// 読み書きは Claude Code と同じく `/usr/bin/security` を通す（理由は `KeychainTool`）。
 enum ClaudeKeychain {
     struct OAuthCredential: Sendable {
         let accessToken: String
@@ -15,9 +14,6 @@ enum ClaudeKeychain {
         let scopes: [String]
         let subscriptionType: String?
         let clientID: String?
-
-        /// 同じservice名の別accountを誤更新しないためのKeychain item識別子。
-        fileprivate let persistentRef: Data
     }
 
     enum ReadFailure: Sendable {
@@ -56,7 +52,6 @@ enum ClaudeKeychain {
 
     private struct KeychainItem {
         let data: Data
-        let persistentRef: Data
     }
 
     /// Keychain項目の中身の種類。
@@ -91,11 +86,10 @@ enum ClaudeKeychain {
 
     /// ターミナル版CLIが入っているか。
     ///
-    /// 同じKeychain項目へ複数のアプリが書き込むと、macOSはpartition listを
-    /// 書き手自身へ置き換える。締め出された側は以後アクセスのたびにログイン
-    /// キーチェーンのパスワードを要求される。CLIが居るならトークンの更新は
-    /// CLIに任せ、こちらは読むだけにしてこの奪い合いを避ける。
-    /// デスクトップ版が内包するバイナリは対象外（あれはKeychainへ書かない）。
+    /// CLIが居るならトークンの更新はCLIに任せ、こちらは読むだけにする。
+    /// refresh tokenは更新のたびに回転するので、2か所から更新すると片方が
+    /// 使えなくなった古いtokenを掴みうる。
+    /// デスクトップ版が内包するバイナリは対象外。
     static func terminalCLIInstalled() -> Bool {
         let manager = FileManager.default
         return terminalCLISearchPaths().contains {
@@ -153,7 +147,7 @@ enum ClaudeKeychain {
         }
 
         guard let oauth = try? JSONDecoder().decode(Credentials.self, from: item.data).claudeAiOauth,
-              let credential = validatedCredential(oauth, persistentRef: item.persistentRef)
+              let credential = validatedCredential(oauth)
         else { return .unavailable(.malformed) }
 
         if let expiresAt = credential.expiresAt,
@@ -170,14 +164,10 @@ enum ClaudeKeychain {
     static func prepareForRefresh(_ expected: OAuthCredential) -> Bool {
         let (status, item) = readRawItem()
         guard status == errSecSuccess, let item,
-              item.persistentRef == expected.persistentRef,
               rawCredentialMatches(item.data, expected: expected)
         else { return false }
 
-        return SecItemUpdate(
-            updateQuery(for: expected) as CFDictionary,
-            [kSecValueData as String: item.data] as CFDictionary
-        ) == errSecSuccess
+        return writeRawItem(item.data) == errSecSuccess
     }
 
     /// Claude Codeのrefresh tokenは回転するため、access/refresh両方が読取時と一致する場合だけ
@@ -200,9 +190,7 @@ enum ClaudeKeychain {
             }
             guard let item else { return .failed }
 
-            guard item.persistentRef == expected.persistentRef,
-                  rawCredentialMatches(item.data, expected: expected)
-            else {
+            guard rawCredentialMatches(item.data, expected: expected) else {
                 return .changed(credentialState())
             }
             guard let updated = updatedCredentialData(
@@ -215,10 +203,7 @@ enum ClaudeKeychain {
                 scopes: scopes
             ) else { return .failed }
 
-            let updateStatus = SecItemUpdate(
-                updateQuery(for: expected) as CFDictionary,
-                [kSecValueData as String: updated] as CFDictionary
-            )
+            let updateStatus = writeRawItem(updated)
             if updateStatus == errSecSuccess { return .saved }
             if [errSecAuthFailed, errSecInteractionNotAllowed, errSecUserCanceled]
                 .contains(updateStatus) {
@@ -280,10 +265,7 @@ enum ClaudeKeychain {
             && oauth["clientId"] as? String == expected.clientID
     }
 
-    private static func validatedCredential(
-        _ oauth: Credentials.OAuth,
-        persistentRef: Data
-    ) -> OAuthCredential? {
+    private static func validatedCredential(_ oauth: Credentials.OAuth) -> OAuthCredential? {
         guard isSafeToken(oauth.accessToken) else { return nil }
 
         let refreshToken: String?
@@ -319,44 +301,22 @@ enum ClaudeKeychain {
             expiresAt: expiresAt,
             scopes: scopes,
             subscriptionType: subscription,
-            clientID: clientID,
-            persistentRef: persistentRef
+            clientID: clientID
         )
     }
 
+    static let service = "Claude Code-credentials"
+
     private static func readRawItem() -> (OSStatus, KeychainItem?) {
-        let query = keychainQuery().merging([
-            kSecReturnData as String: true,
-            kSecReturnPersistentRef as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]) { _, new in new }
-
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
-        guard status == errSecSuccess,
-              let values = item as? [String: Any],
-              let data = values[kSecValueData as String] as? Data,
-              let persistentRef = values[kSecValuePersistentRef as String] as? Data
-        else { return (status, nil) }
-        return (status, KeychainItem(data: data, persistentRef: persistentRef))
+        let (status, data) = KeychainTool.read(service: service, account: NSUserName())
+        guard status == errSecSuccess, let data else { return (status, nil) }
+        return (status, KeychainItem(data: data))
     }
 
-    /// Claude Codeはserviceに加えてmacOS usernameをaccountへ保存する。
-    /// 同じservice名の別accountを読み取らないよう両方で選択する。
-    static func keychainQuery(accountName: String = NSUserName()) -> [String: Any] {
-        [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "Claude Code-credentials",
-            kSecAttrAccount as String: accountName,
-        ]
-    }
-
-    /// macOSではpersistent refをkSecMatchItemListへ渡して更新対象を1件に固定する。
-    private static func updateQuery(for credential: OAuthCredential) -> [String: Any] {
-        [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecMatchItemList as String: [credential.persistentRef],
-        ]
+    /// Claude Codeと同じ `add-generic-password -U` で上書きする。
+    /// serviceとmacOS usernameで項目を1件に固定するのもClaude Codeと同じ。
+    private static func writeRawItem(_ data: Data) -> OSStatus {
+        KeychainTool.write(data, service: service, account: NSUserName())
     }
 
     /// User-Agent 用。`claude-code/<version>` でないと厳しい 429 バケットに落ちるため、
