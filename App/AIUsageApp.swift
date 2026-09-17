@@ -18,6 +18,25 @@ struct AIUsageApp: App {
             )
         }
         .menuBarExtraStyle(.window)
+        .commands {
+            // macOSアプリの定位置。設定やヘルプを開いている間はアプリメニューから辿れる。
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesCommand(updater: model.updater, language: model.language)
+            }
+        }
+    }
+}
+
+/// アプリメニューの「アップデートを確認…」。確認中など押せない間は無効にする。
+private struct CheckForUpdatesCommand: View {
+    @ObservedObject var updater: AppUpdater
+    let language: AppLanguage
+
+    var body: some View {
+        Button(L10n.text("settings.checkForUpdates", language: language)) {
+            updater.checkForUpdates()
+        }
+        .disabled(!updater.canCheckForUpdates)
     }
 }
 
