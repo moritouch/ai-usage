@@ -11,7 +11,7 @@ import WidgetKit
 /// 起動したときに止める。止めた拡張は、次の更新要求でWidgetKitが新しい版から起動し直す。
 enum StaleWidgetExtension {
     private static let lastLaunchedBuildKey = "lastLaunchedBuild"
-    private static let executableSuffix = "/AIUsageWidget.appex/Contents/MacOS/AIUsageWidget"
+    private static let processName = "AIUsageWidget"
 
     @MainActor
     static func terminateIfAppWasUpdated(defaults: UserDefaults = .standard) {
@@ -20,16 +20,17 @@ enum StaleWidgetExtension {
         defaults.set(build, forKey: lastLaunchedBuildKey)
         guard previous != build else { return }
 
-        // 旧版の実行ファイルは置き換えで別の場所へ移っていることがあるので、末尾で見分ける。
+        // パスでは見分けない。Sparkleは旧版を作業フォルダへ移してからフォルダごと消すので、
+        // 旧版のプロセスは実行ファイルのパスを引くとENOENTになる。名前はプロセスが持ち続ける。
         // killは同じ利用者のプロセスにしか届かない。
-        let stopped = runningProcesses(whosePathEndsWith: executableSuffix)
+        let stopped = runningProcesses(named: processName)
             .filter { kill($0, SIGTERM) == 0 }
         if !stopped.isEmpty {
             WidgetCenter.shared.reloadAllTimelines()
         }
     }
 
-    static func runningProcesses(whosePathEndsWith suffix: String) -> [pid_t] {
+    static func runningProcesses(named name: String) -> [pid_t] {
         let count = proc_listallpids(nil, 0)
         guard count > 0 else { return [] }
         // 数えてから取るまでの間に増えても取りこぼさないよう、余裕を持たせる。
@@ -40,12 +41,12 @@ enum StaleWidgetExtension {
         guard filled > 0 else { return [] }
 
         let own = getpid()
-        var buffer = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
+        var buffer = [CChar](repeating: 0, count: 2 * Int(MAXCOMLEN) + 1)
         return pids.prefix(Int(filled)).filter { pid in
             guard pid > 0, pid != own,
-                  proc_pidpath(pid, &buffer, UInt32(buffer.count)) > 0
+                  proc_name(pid, &buffer, UInt32(buffer.count)) > 0
             else { return false }
-            return String(cString: buffer).hasSuffix(suffix)
+            return String(cString: buffer) == name
         }
     }
 }
