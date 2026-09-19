@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 extension UsageWindow {
@@ -39,42 +38,18 @@ extension AgentUsage {
     }
 
     /// Grokはモノクロ系のcool gray。ライト面では濃く、ダーク面では明るくして識別性を保つ。
-    private var grokAccent: Color {
-        Self.adaptive(
-            name: "AIUsage.GrokAccent",
-            light: (86, 99, 114),
-            dark: (170, 181, 194)
-        )
-    }
+    /// 値は Assets.xcassets の GrokAccent（ライト 86/99/114、ダーク 170/181/194）。
+    private var grokAccent: Color { Color("GrokAccent") }
 
     /// Cursorは完全な無彩色。公式アイコンは黒と白だけで構成されている。
     /// Grokのcool grayより暗く（ライト面）、より明るく（ダーク面）して、
     /// 同じモノクロ同士でも取り違えないようにする。
-    private var cursorAccent: Color {
-        Self.adaptive(
-            name: "AIUsage.CursorAccent",
-            light: (26, 26, 26),
-            dark: (240, 240, 240)
-        )
-    }
-
-    /// 明暗どちらの面でも読めるよう、外観に応じて色を差し替える。
-    private static func adaptive(
-        name: String,
-        light: (Int, Int, Int),
-        dark: (Int, Int, Int)
-    ) -> Color {
-        Color(nsColor: NSColor(name: NSColor.Name(name)) { appearance in
-            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            let (r, g, b) = isDark ? dark : light
-            return NSColor(
-                srgbRed: CGFloat(r) / 255,
-                green: CGFloat(g) / 255,
-                blue: CGFloat(b) / 255,
-                alpha: 1
-            )
-        })
-    }
+    /// 値は Assets.xcassets の CursorAccent（ライト 26/26/26、ダーク 240/240/240）。
+    ///
+    /// 明暗で変わる色はアセットカタログに置く。`NSColor(name:dynamicProvider:)` で作ると
+    /// 名前だけあってバンドルの無い色になり、macOS 27.2以降のWidgetKitは表示内容の保存時に
+    /// `WidgetArchiver.ValidationError.bundle` で拒否する。ウィジェットは仮表示のまま止まる。
+    private var cursorAccent: Color { Color("CursorAccent") }
 }
 
 extension AgentStatus {
