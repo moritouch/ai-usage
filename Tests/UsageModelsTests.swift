@@ -240,6 +240,23 @@ final class UsageModelsTests: XCTestCase {
         )
     }
 
+    /// 請求期間の枠は複数のエージェントが持つ。どれも日本語で出す。
+    func testEveryPeriodWindowIsLocalized() {
+        for id in ["grok_period", "grokbot_period", "cursor_period"] {
+            XCTAssertEqual(
+                L10n.windowLabel(
+                    UsageWindow(
+                        id: id, label: "Period", usedPercent: 1,
+                        resetsAt: nil, windowSeconds: nil
+                    ),
+                    language: .japanese
+                ),
+                "期間",
+                id
+            )
+        }
+    }
+
     func testSelectedLanguageKeepsCurrentRegion() {
         let currentRegion = Locale.autoupdatingCurrent.region?.identifier
         XCTAssertEqual(AppLanguage.english.locale.region?.identifier, currentRegion)

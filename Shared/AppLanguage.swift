@@ -137,7 +137,8 @@ enum L10n {
             return text("window.usage", language: language)
         case ("secondary", "Secondary"):
             return text("window.secondary", language: language)
-        case ("grok_period", "Period"):
+        // Grok、Grok Bot、Cursorが同じラベルを使う。idで拾うと増やすたびに漏れる。
+        case (_, "Period"):
             return text("window.period", language: language)
         default:
             return window.label
