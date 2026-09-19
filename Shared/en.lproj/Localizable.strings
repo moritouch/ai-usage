@@ -121,7 +121,7 @@
 "help.codex.body" = "Usage comes from the official Codex client. AI Usage runs codex app-server and reads the same values /status shows, without running a model or writing anything to ~/.codex. It looks for codex where command line tools are usually installed and inside ChatGPT.app, so installing either the CLI or the official app is enough. Without one of them it falls back to the local session log, which only terminal Codex updates: complete a normal Codex response, then check again. Checking again does not update that log by itself.";
 "help.grok.title" = "Grok";
 "help.grok.body" = "Use Grok normally so it can update its local billing log, then check again.";
-"help.widget.body" = "Opening the widget alone does not collect data. Open the AI Usage app and check again. The medium widget shows four quota rows. An agent with more than one window uses more than one row, so roughly three agents fit. It fills those rows in card order, so reorder the cards in Settings to change which agents appear.";
+"help.widget.body" = "Opening the widget alone does not collect data. Open the AI Usage app and check again. The small widget shows one agent, the medium widget four quota rows, and the large widget up to five agents. An agent with more than one window uses more than one row, so roughly three agents fit in the medium widget. Each fills in card order; reorder the cards in Settings, or choose Edit Widget to pick the agents.";
 "help.checkAgain.detail" = "Checking again retries collection, but it cannot force Grok to write new logs or bypass a provider's rate limit.";
 "help.privacy" = "For support, do not share OAuth tokens, Keychain contents, complete session logs, or raw statusLine logs.";
 
@@ -129,7 +129,7 @@
 "AI Usage" = "AI Usage";
 "Agent" = "Agent";
 "Agents" = "Agents";
-"Choose which agents to show. The first one leads. Medium widgets show up to four quota rows, and one agent may use multiple rows." = "Choose which agents to show. The first one leads. Medium widgets show up to four quota rows, and one agent may use multiple rows.";
+"Choose which agents to show, in order. Small widgets show one, medium widgets up to four quota rows, and large widgets up to five agents. One agent may use more than one row." = "Choose which agents to show, in order. Small widgets show one, medium widgets up to four quota rows, and large widgets up to five agents. One agent may use more than one row.";
 "widget.stale.accessibility" = "Stale usage data";
 "widget.used.accessibility.format" = "%@ used";
 "widget.agentUsed.accessibility.format" = "%1$@, %2$@ used";

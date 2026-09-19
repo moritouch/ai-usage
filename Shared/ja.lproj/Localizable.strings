@@ -121,7 +121,7 @@
 "help.codex.body" = "使用量はCodex公式クライアントから取得します。AI Usageがcodex app-serverを起動し、/statusと同じ値を読み取ります。モデルは動かず、~/.codexへの書き込みもありません。codexはコマンドラインツールの一般的な配置先とChatGPT.appの中から探すため、CLIか公式アプリのどちらか一方があれば取得できます。どちらも無い場合はローカルのsession logを読みますが、これはターミナル版Codexを使ったときしか更新されません。その場合はCodexで通常の応答を完了してから再確認してください。再確認だけではsession logは更新されません。";
 "help.grok.title" = "Grok";
 "help.grok.body" = "Grokを通常利用してローカルのbilling logを更新してから再確認してください。";
-"help.widget.body" = "ウィジェットを開くだけでは収集されません。AI Usage本体を開いて再確認してください。中サイズのウィジェットは4行までを表示します。枠を複数持つエージェントは複数行を使うため、収まるのは概ね3エージェントです。表示されるのはカード順の先頭からで、変えるには設定でカードを並べ替えます。";
+"help.widget.body" = "ウィジェットを開くだけでは収集されません。AI Usage本体を開いて再確認してください。小サイズは1エージェント、中サイズは4行まで、大サイズは5エージェントまでを表示します。枠を複数持つエージェントは複数行を使うため、中サイズに収まるのは概ね3エージェントです。表示されるのはカード順の先頭からで、変えるには設定でカードを並べ替えるか、「ウィジェットを編集」から選びます。";
 "help.checkAgain.detail" = "再確認は収集をやり直しますが、Grokのログ更新や提供元のレート制限解除を強制するものではありません。";
 "help.privacy" = "サポート時にもOAuth token、Keychain内容、完全なsession log、生のstatusLineログを共有しないでください。";
 
@@ -129,7 +129,7 @@
 "AI Usage" = "AI Usage";
 "Agent" = "エージェント";
 "Agents" = "エージェント";
-"Choose which agents to show. The first one leads. Medium widgets show up to four quota rows, and one agent may use multiple rows." = "表示するエージェントを選びます。最初のエージェントが優先されます。中サイズは最大4行で、1つのエージェントが複数行を使う場合があります。";
+"Choose which agents to show, in order. Small widgets show one, medium widgets up to four quota rows, and large widgets up to five agents. One agent may use more than one row." = "表示するエージェントを順に選びます。小サイズは1つ、中サイズは使用枠4行まで、大サイズはエージェント5つまで表示します。1つのエージェントが複数行を使うことがあります。";
 "widget.stale.accessibility" = "古い使用量データ";
 "widget.used.accessibility.format" = "%@使用済み";
 "widget.agentUsed.accessibility.format" = "%1$@、%2$@使用済み";

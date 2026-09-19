@@ -29,7 +29,7 @@ AI Usage is distributed outside the Mac App Store. Apple notarization verifies t
 ## Features
 
 - **Menu bar status** — See the most constrained usage window at a glance, then open the popover for all available windows and reset times.
-- **Desktop widgets** — Choose an agent for a small widget or view multiple usage windows in the medium widget. The medium widget fits four quota rows, and an agent with more than one window uses more than one row, so roughly three agents fit; card order decides which ones.
+- **Desktop widgets** — The small widget shows one agent. The medium widget fits four quota rows; an agent with more than one window uses more than one row, so roughly three agents fit. The large widget shows up to five agents, with the remaining share and time to reset under each bar. Card order decides which agents appear, and Edit Widget lets you pick them yourself, up to the number each size can show.
 - **Freshness guidance** — A `Stale` badge explains when a displayed value cannot be confirmed as current and links to tool-specific recovery steps.
 - **Customizable display** — Show or hide agents, drag cards to reorder them, and optionally show the app in the Dock.
 - **Japanese and English** — The app and widgets share the selected language.
@@ -62,7 +62,7 @@ Gemini CLI is not currently supported because the required allowance data is not
 3. Eject the DMG and launch AI Usage from Applications.
 4. AI Usage reads Claude Code's Keychain item through macOS's `/usr/bin/security`, the same tool Claude Code itself uses, so there is normally no Keychain prompt. If one naming `security` does appear—for example when an older version of AI Usage last wrote the item—confirm that you installed the notarized release, then choose **Always Allow** once. If you decline, AI Usage does not ask again until you choose Check Again, and Codex and Grok collection continues.
 5. Open Settings to select Japanese or English, choose visible agents, and adjust their order.
-6. To add a widget, right-click the desktop, choose **Edit Widgets**, and add AI Usage. Keep the main app running so it can collect and publish fresh display data to the widget. The medium widget shows the first four quota rows in card order, so agents past that point do not appear; reorder the cards in Settings to change which ones do.
+6. To add a widget, right-click the desktop, choose **Edit Widgets**, and add AI Usage. Keep the main app running so it can collect and publish fresh display data to the widget. Each size fills in card order until it is full: one agent for small, four quota rows for medium, and five agents for large. Reorder the cards in Settings, or right-click the widget and choose Edit Widget to pick the agents yourself.
 
 The DMG includes a visual drag-to-Applications guide and a bilingual first-launch checklist.
 
