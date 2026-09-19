@@ -123,6 +123,7 @@ targets:
       - Shared/CLILocator.swift
       - Shared/ClaudeKeychain.swift
       - Shared/KeychainTool.swift
+      - App/StaleWidgetExtension.swift
       - Shared/ClaudeSessionKey.swift
       - Shared/WebSessionStore.swift
       - Shared/CursorSession.swift

@@ -426,6 +426,14 @@ Draft ReleaseやGitHub Release assetのURLをappcastへ置かない。
 更新後は`/Applications/AI Usage.app`のWidget登録、ギャラリー名が「AI Usage」であること、
 配置済みWidgetに使用量が表示されることを確認する。
 
+macOS 27.2以降のWidgetKitは、拡張が描いた内容を保存するときにLaunchServicesに登録された版と
+照合し、食い違うと`WidgetArchiver.ValidationError.bundleStubNotSupported`（"Bundle version did not
+match"）で拒否する。ウィジェットは伏せ字の仮表示のまま止まり、`/usr/bin/log show --predicate
+'process == "chronod"'`にこのエラーが出る（zshでは`log`が組込みコマンドなので絶対パスで呼ぶ）。
+原因は2つある。1つはアップデート前の版の拡張プロセスが動き続けていることで、アプリは版が変わった
+初回の起動でそれを止める（`App/StaleWidgetExtension.swift`）。もう1つは同じbundle IDのビルド物や
+展開済みバックアップがLaunchServicesに残っていることで、開発機では`lsregister -u`で登録を外す。
+
 問題発生時は新versionの配布を停止し、影響範囲とデータ互換性を確認する。rollbackが安全なら、
 保管済みの直前正常版を元のハッシュのまま再案内し、再圧縮・再署名による差し替えはしない。
 利用者へ対象version、回避策、復旧状況を通知し、原因修正は新しいversion/buildとして再リリースする。

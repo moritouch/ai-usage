@@ -94,6 +94,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Dock からの再表示要求。UsageModel 側で差し替える。
     @MainActor static var onReopen: (() -> Void)?
 
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        MainActor.assumeIsolated { StaleWidgetExtension.terminateIfAppWasUpdated() }
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication,
                                        hasVisibleWindows flag: Bool) -> Bool {
         MainActor.assumeIsolated { Self.onReopen?() }
