@@ -26,7 +26,7 @@ enum CodexCollector {
         guard let hit = selectBucket(from: observations) else {
             return AgentUsage(
                 id: "codex", name: "Codex",
-                plan: observations.first.flatMap { PlanLabel.normalize($0.limits.plan_type) },
+                plan: observations.first.flatMap { PlanLabel.normalize($0.limits.plan_type, vendor: .openAI) },
                 windows: [], observedAt: nil, source: source,
                 status: .unavailable,
                 note: hasOnlyModelBuckets(observations)
@@ -45,7 +45,7 @@ enum CodexCollector {
         return AgentUsage(
             id: "codex",
             name: "Codex",
-            plan: PlanLabel.normalize(hit.limits.plan_type),
+            plan: PlanLabel.normalize(hit.limits.plan_type, vendor: .openAI),
             windows: windows,
             observedAt: hit.observedAt,
             source: source,

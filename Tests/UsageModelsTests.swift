@@ -182,6 +182,46 @@ final class UsageModelsTests: XCTestCase {
         XCTAssertEqual(PlanLabel.normalize("claude_team"), "Team")
     }
 
+    /// ProはPro 100 / Pro 200 / Pro 500へ分かれた。どの等級かが分かること。
+    /// 対応はChatGPTアプリ内の表示文言に合わせている。
+    func testPlanLabelNamesTheOpenAIProTiers() {
+        XCTAssertEqual(PlanLabel.normalize("prolite", vendor: .openAI), "Pro 100")
+        XCTAssertEqual(PlanLabel.normalize("pro", vendor: .openAI), "Pro 200")
+        XCTAssertEqual(PlanLabel.normalize("promax", vendor: .openAI), "Pro 500")
+        XCTAssertEqual(PlanLabel.normalize("plus", vendor: .openAI), "Plus")
+        XCTAssertEqual(PlanLabel.normalize("go", vendor: .openAI), "Go")
+    }
+
+    /// 等級はOpenAIの話。同じ識別子で来るClaudeのPro/Maxを巻き込まないこと。
+    func testPlanLabelKeepsOtherVendorsOutOfTheOpenAITiers() {
+        XCTAssertEqual(PlanLabel.normalize("claude_pro"), "Pro")
+        XCTAssertEqual(PlanLabel.normalize("pro"), "Pro")
+        XCTAssertEqual(PlanLabel.normalize("team"), "Team")
+        XCTAssertEqual(PlanLabel.normalize("max20x"), "Max")
+    }
+
+    /// Businessは標準シートとプレミアムシートで使える量が違う。見分けられること。
+    func testPlanLabelDistinguishesTheBusinessPremiumSeat() {
+        XCTAssertEqual(
+            PlanLabel.normalize("self_serve_business_prolite", vendor: .openAI), "Business Premium"
+        )
+        XCTAssertEqual(
+            PlanLabel.normalize("self_serve_business_usage_based", vendor: .openAI),
+            "Business Usage-based"
+        )
+        XCTAssertEqual(PlanLabel.normalize("team", vendor: .openAI), "Business")
+        XCTAssertEqual(PlanLabel.normalize("business", vendor: .openAI), "Business")
+    }
+
+    /// 企業向けと教育向けは種類が多い。どれも短い表記にそろえる。
+    func testPlanLabelShortensEnterpriseAndEducationIdentifiers() {
+        for raw in ["ent26", "enterprise_cbp_automation", "enterprise_cbp_usage_based", "enterprise"] {
+            XCTAssertEqual(PlanLabel.normalize(raw, vendor: .openAI), "Enterprise", raw)
+        }
+        XCTAssertEqual(PlanLabel.normalize("edu_plus", vendor: .openAI), "Edu Plus")
+        XCTAssertEqual(PlanLabel.normalize("edu_pro", vendor: .openAI), "Edu Pro")
+    }
+
     func testPlanLabelRemovesFormatCharactersAndBoundsLength() {
         XCTAssertEqual(PlanLabel.normalize("pro\u{200B}"), "Pro")
         XCTAssertNil(PlanLabel.normalize("\u{0000}\u{200B}"))
