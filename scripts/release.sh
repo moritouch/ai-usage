@@ -1075,7 +1075,11 @@ submit_and_record_notarization() {
     receipt_set_string "notarization.$label.submissionId" "$submission_id"
     : >"$log_stderr_path"
     set +e
-    while [ "$log_attempt_count" -lt 3 ]; do
+    # ログはAcceptedの直後にはまだ出ていないことがあり、公証を待つ数分の間に
+    # ログインキーチェーンが施錠されて資格情報を読めなくなることもある。
+    # 短い再試行では尽きるので、間隔を広げながら1分ほど粘る。
+    log_retry_delays=(2 5 10 20 30)
+    while [ "$log_attempt_count" -le "${#log_retry_delays[@]}" ]; do
       log_attempt_count=$((log_attempt_count + 1))
       rm -f "$log_path"
       printf 'attempt %s\n' "$log_attempt_count" >>"$log_stderr_path"
@@ -1087,8 +1091,8 @@ submit_and_record_notarization() {
       if [ "$log_command_status" -eq 0 ]; then
         break
       fi
-      if [ "$log_attempt_count" -lt 3 ]; then
-        sleep "$log_attempt_count"
+      if [ "$log_attempt_count" -le "${#log_retry_delays[@]}" ]; then
+        sleep "${log_retry_delays[$((log_attempt_count - 1))]}"
       fi
     done
     set -e
@@ -1129,7 +1133,7 @@ submit_and_record_notarization() {
     return 1
   fi
   if [ "$log_ok" -ne 1 ]; then
-    fail "$label の公証ログを保存・検証できませんでした。submission ID $submission_id を使って取得してください。"
+    fail "$label の公証ログを保存・検証できませんでした。submission ID $submission_id を使って取得してください。公証は Accepted でもログだけ取れないことがあります。$log_stderr_path に「No Keychain password item found」とあれば、公証を待つ間にログインキーチェーンが施錠されています。解錠してから再実行してください。"
     return 1
   fi
   if [ "$issue_count" != "0" ]; then
