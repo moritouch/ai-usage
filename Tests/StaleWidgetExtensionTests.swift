@@ -17,6 +17,14 @@ final class StaleWidgetExtensionTests: XCTestCase {
         process.arguments = ["10"]
         try process.run()
         defer { process.terminate() }
+
+        // 起動し切る前に消すと exec 自体が失敗し、消えた実行ファイルの検証にならない。
+        var waited = 0
+        while !StaleWidgetExtension.runningProcesses(named: name)
+            .contains(process.processIdentifier), waited < 100 {
+            usleep(20_000)
+            waited += 1
+        }
         try FileManager.default.removeItem(at: directory)
 
         XCTAssertTrue(

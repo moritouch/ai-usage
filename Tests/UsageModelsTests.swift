@@ -182,6 +182,32 @@ final class UsageModelsTests: XCTestCase {
         XCTAssertEqual(PlanLabel.normalize("claude_team"), "Team")
     }
 
+    /// Maxの倍率は rateLimitTier にしか入っていない。subscriptionType は max としか言わない。
+    func testPlanLabelShowsTheClaudeMaxMultiplier() {
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(subscriptionType: "max", rateLimitTier: "default_claude_max_20x"),
+            "Max 20x"
+        )
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(subscriptionType: "max", rateLimitTier: "default_claude_max_5x"),
+            "Max 5x"
+        )
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(subscriptionType: "pro", rateLimitTier: "default_claude_pro"),
+            "Pro"
+        )
+    }
+
+    /// 知らない等級の形で倍率を名乗らせない。元のプラン表記へ戻ること。
+    func testPlanLabelFallsBackWhenTheTierIsUnfamiliar() {
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(subscriptionType: "max", rateLimitTier: "experimental_tier_9"),
+            "Max"
+        )
+        XCTAssertEqual(PlanLabel.anthropicPlan(subscriptionType: "max", rateLimitTier: nil), "Max")
+        XCTAssertNil(PlanLabel.anthropicPlan(subscriptionType: nil, rateLimitTier: nil))
+    }
+
     /// ProはPro 100 / Pro 200 / Pro 500へ分かれた。どの等級かが分かること。
     /// 対応はChatGPTアプリ内の表示文言に合わせている。
     func testPlanLabelNamesTheOpenAIProTiers() {
@@ -197,7 +223,7 @@ final class UsageModelsTests: XCTestCase {
         XCTAssertEqual(PlanLabel.normalize("claude_pro"), "Pro")
         XCTAssertEqual(PlanLabel.normalize("pro"), "Pro")
         XCTAssertEqual(PlanLabel.normalize("team"), "Team")
-        XCTAssertEqual(PlanLabel.normalize("max20x"), "Max")
+        XCTAssertEqual(PlanLabel.normalize("max20x"), "Max 20x")
     }
 
     /// Businessは標準シートとプレミアムシートで使える量が違う。見分けられること。

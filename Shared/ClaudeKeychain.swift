@@ -13,6 +13,8 @@ enum ClaudeKeychain {
         let expiresAt: Date?
         let scopes: [String]
         let subscriptionType: String?
+        /// 契約の等級（例: `default_claude_max_20x`）。倍率はここにしか入っていない。
+        let rateLimitTier: String?
         let clientID: String?
     }
 
@@ -45,6 +47,7 @@ enum ClaudeKeychain {
             let expiresAt: Double?
             let scopes: [String]?
             let subscriptionType: String?
+            let rateLimitTier: String?
             let clientId: String?
         }
         let claudeAiOauth: OAuth?
@@ -288,6 +291,7 @@ enum ClaudeKeychain {
 
         let scopes = (oauth.scopes ?? []).compactMap(sanitizedMetadata)
         let subscription = oauth.subscriptionType.flatMap(sanitizedMetadata)
+        let tier = oauth.rateLimitTier.flatMap(sanitizedMetadata)
         let clientID: String?
         if let raw = oauth.clientId {
             guard isSafeClientID(raw) else { return nil }
@@ -301,6 +305,7 @@ enum ClaudeKeychain {
             expiresAt: expiresAt,
             scopes: scopes,
             subscriptionType: subscription,
+            rateLimitTier: tier,
             clientID: clientID
         )
     }

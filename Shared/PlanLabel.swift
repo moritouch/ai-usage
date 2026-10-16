@@ -23,8 +23,8 @@ enum PlanLabel {
         "edu": "Edu",
         // Anthropic / Claude。倍率付きの識別子で来ることがあるが、等級は表に出さない。
         "max": "Max",
-        "max5x": "Max",
-        "max20x": "Max",
+        "max5x": "Max 5x",
+        "max20x": "Max 20x",
     ]
 
     /// OpenAI / Codex。識別子は `codex app-server` が返す `planType`。
@@ -50,32 +50,50 @@ enum PlanLabel {
         "edupro": "Edu Pro",
     ]
 
-    /// 頭に付くことがある名前空間。落としてから対応表を引く。
-    private static let prefixes = ["claudeai", "claude", "anthropic", "chatgpt", "openai"]
+    /// 頭に付くことがある名前空間と修飾。落としてから対応表を引く。
+    /// 例: `default_claude_max_20x` は `default` と `claude` を落として `max20x`。
+    private static let prefixes = ["default", "claudeai", "claude", "anthropic", "chatgpt", "openai"]
 
-    static func normalize(_ raw: String?, vendor: Vendor = .any) -> String? {
-        guard let raw else { return nil }
+    /// 制御文字などを落として前後を詰める。読めない値はnil。
+    private static func sanitized(_ raw: String) -> String? {
         let safeScalars = raw.unicodeScalars.lazy.filter {
             switch $0.properties.generalCategory {
             case .control, .format, .surrogate: return false
             default: return true
             }
         }.prefix(256)
-        guard let trimmed = String(String.UnicodeScalarView(Array(safeScalars)))
+        return String(String.UnicodeScalarView(Array(safeScalars)))
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .nilIfEmpty
-        else { return nil }
+    }
 
-        var key = trimmed.lowercased()
+    /// 区切りと名前空間を落として対応表を引くための鍵にする。
+    private static func lookupKey(for raw: String) -> String {
+        var key = raw.lowercased()
             .replacingOccurrences(of: "_", with: "")
             .replacingOccurrences(of: "-", with: "")
             .replacingOccurrences(of: " ", with: "")
-        for prefix in prefixes where key.hasPrefix(prefix) && key != prefix {
+        // 重ねて付くことがあるので、落とせなくなるまで繰り返す。
+        var strips = 0
+        while strips < prefixes.count,
+              let prefix = prefixes.first(where: { key.hasPrefix($0) && key != $0 }) {
             key.removeFirst(prefix.count)
-            break
+            strips += 1
         }
+        return key
+    }
+
+    /// 対応表に載っている場合だけ表示名を返す。推測した整形はしない。
+    static func knownLabel(for raw: String, vendor: Vendor = .any) -> String? {
+        guard let trimmed = sanitized(raw) else { return nil }
+        let key = lookupKey(for: trimmed)
         if vendor == .openAI, let mapped = openAI[key] { return mapped }
-        if let mapped = known[key] { return mapped }
+        return known[key]
+    }
+
+    static func normalize(_ raw: String?, vendor: Vendor = .any) -> String? {
+        guard let raw, let trimmed = sanitized(raw) else { return nil }
+        if let mapped = knownLabel(for: trimmed, vendor: vendor) { return mapped }
 
         // すでに表示用の名前（空白や大文字を含む）ならそのまま活かす。
         if trimmed.contains(" ") || trimmed.rangeOfCharacter(from: .uppercaseLetters) != nil {
@@ -87,6 +105,16 @@ enum PlanLabel {
             .map(\.capitalized)
             .joined(separator: " ")
             .prefix(128))
+    }
+}
+
+extension PlanLabel {
+    /// Claudeのプラン表記。倍率は `rateLimitTier`（例: `default_claude_max_20x`）にしか
+    /// 入っておらず、`subscriptionType` は `max` としか言わない。
+    /// 等級が対応表にある形のときだけそちらを採り、知らない形なら従来どおりの表記に戻す。
+    static func anthropicPlan(subscriptionType: String?, rateLimitTier: String?) -> String? {
+        if let tier = rateLimitTier, let graded = knownLabel(for: tier) { return graded }
+        return normalize(subscriptionType)
     }
 }
 
