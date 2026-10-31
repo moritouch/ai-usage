@@ -18,10 +18,37 @@ actor ClaudeUsageAPI {
         }
     }
 
+    /// 枠ひとつ。種類と残量だけを持つ汎用の形で、2026年10月時点の応答から増えた。
+    ///
+    /// 固定のキー（`five_hour` など）と違い、枠の増減がそのまま配列の増減で表れる。
+    /// 5時間制限が外れたアカウントでは `session` が来なくなり、モデル別の週枠は
+    /// `weekly_scoped` に `scope.model.display_name` 付きで来る。
+    /// `is_active` は真偽値とも数値とも取れる形で来るため読まない。使うのは残量と時刻だけ。
+    struct Limit: Decodable, Sendable {
+        struct Scope: Decodable, Sendable {
+            struct Model: Decodable, Sendable {
+                let display_name: String?
+            }
+            let model: Model?
+        }
+
+        let kind: String?
+        let group: String?
+        let percent: Double?
+        let resets_at: String?
+        let scope: Scope?
+
+        var resetDate: Date? {
+            guard let resets_at else { return nil }
+            return ClaudeUsageAPI.parseISO8601(resets_at)
+        }
+    }
+
     struct Payload: Decodable, Sendable {
         let five_hour: Window?
         let seven_day: Window?
         let seven_day_opus: Window?
+        let limits: [Limit]?
     }
 
     struct FetchResult: Sendable {
@@ -378,12 +405,30 @@ actor ClaudeUsageAPI {
             return window
         }
 
+        func validLimit(_ limit: Limit) -> Limit? {
+            guard let percent = limit.percent,
+                  percent.isFinite,
+                  (0...100).contains(percent)
+            else { return nil }
+
+            if limit.resets_at != nil {
+                guard let date = limit.resetDate else { return nil }
+                let distance = date.timeIntervalSince(now)
+                guard distance.isFinite, abs(distance) <= 10 * 365 * 86_400 else { return nil }
+            }
+            return limit
+        }
+
+        let limits = (payload.limits ?? []).compactMap(validLimit)
         let result = Payload(
             five_hour: validWindow(payload.five_hour),
             seven_day: validWindow(payload.seven_day),
-            seven_day_opus: validWindow(payload.seven_day_opus)
+            seven_day_opus: validWindow(payload.seven_day_opus),
+            limits: limits.isEmpty ? nil : limits
         )
-        guard result.five_hour != nil || result.seven_day != nil || result.seven_day_opus != nil
+        // 固定キーが空でも、枠の一覧さえ取れていれば表示できる。
+        guard result.five_hour != nil || result.seven_day != nil
+                || result.seven_day_opus != nil || result.limits != nil
         else { return nil }
         return result
     }

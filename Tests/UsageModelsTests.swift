@@ -182,15 +182,21 @@ final class UsageModelsTests: XCTestCase {
         XCTAssertEqual(PlanLabel.normalize("claude_team"), "Team")
     }
 
-    /// Maxの倍率は rateLimitTier にしか入っていない。subscriptionType は max としか言わない。
-    func testPlanLabelShowsTheClaudeMaxMultiplier() {
+    /// 等級は rateLimitTier にしか入っていない。subscriptionType は max としか言わない。
+    /// 2026年10月の改称で Max 5x → Max、Max 20x → Ultra。識別子は変わらないまま来る。
+    func testPlanLabelNamesTheRenamedClaudeTiers() {
         XCTAssertEqual(
             PlanLabel.anthropicPlan(subscriptionType: "max", rateLimitTier: "default_claude_max_20x"),
-            "Max 20x"
+            "Ultra"
         )
         XCTAssertEqual(
             PlanLabel.anthropicPlan(subscriptionType: "max", rateLimitTier: "default_claude_max_5x"),
-            "Max 5x"
+            "Max"
+        )
+        // 識別子の側が Ultra を名乗るようになっても読めること。
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(subscriptionType: "max", rateLimitTier: "default_claude_ultra"),
+            "Ultra"
         )
         XCTAssertEqual(
             PlanLabel.anthropicPlan(subscriptionType: "pro", rateLimitTier: "default_claude_pro"),
@@ -223,7 +229,7 @@ final class UsageModelsTests: XCTestCase {
         XCTAssertEqual(PlanLabel.normalize("claude_pro"), "Pro")
         XCTAssertEqual(PlanLabel.normalize("pro"), "Pro")
         XCTAssertEqual(PlanLabel.normalize("team"), "Team")
-        XCTAssertEqual(PlanLabel.normalize("max20x"), "Max 20x")
+        XCTAssertEqual(PlanLabel.normalize("max20x"), "Ultra")
     }
 
     /// Businessは標準シートとプレミアムシートで使える量が違う。見分けられること。

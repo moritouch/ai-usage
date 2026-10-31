@@ -19,8 +19,37 @@ enum ClaudeCollector {
 
     // MARK: - 1) OAuth API
 
-    private static func fromAPI(_ result: ClaudeUsageAPI.FetchResult) -> AgentUsage {
-        let payload = result.payload
+    /// `limits` から枠を作る。種類の分からないものは出さない。
+    static func windows(from limits: [ClaudeUsageAPI.Limit]) -> [UsageWindow] {
+        limits.compactMap { limit in
+            guard let used = limit.percent, used.isFinite, (0...100).contains(used) else { return nil }
+            switch limit.kind {
+            case "session":
+                return UsageWindow(id: "five_hour", label: "5h", usedPercent: used,
+                                   resetsAt: limit.resetDate, windowSeconds: 5 * 3_600)
+            case "weekly_all":
+                return UsageWindow(id: "seven_day", label: "7d", usedPercent: used,
+                                   resetsAt: limit.resetDate, windowSeconds: 7 * 86_400)
+            case "weekly_scoped":
+                // モデル別の枠。使っていないモデルは0%のままなので、代表値には使わない。
+                let model = limit.scope?.model?.display_name
+                var window = UsageWindow(
+                    id: "seven_day_" + (model.map(slug) ?? "scoped"),
+                    label: model.map { "\($0) 7d" } ?? "7d",
+                    usedPercent: used,
+                    resetsAt: limit.resetDate,
+                    windowSeconds: 7 * 86_400
+                )
+                window.isSupplementary = true
+                return window
+            default:
+                return nil
+            }
+        }
+    }
+
+    /// `limits` を返さない応答向け。従来の固定キーから作る。
+    private static func legacyWindows(from payload: ClaudeUsageAPI.Payload) -> [UsageWindow] {
         var windows: [UsageWindow] = []
         if let five = payload.five_hour, let used = five.utilization {
             windows.append(UsageWindow(id: "five_hour", label: "5h", usedPercent: used,
@@ -34,6 +63,23 @@ enum ClaudeCollector {
             windows.append(UsageWindow(id: "seven_day_opus", label: "7d Opus", usedPercent: used,
                                        resetsAt: opus.resetDate, windowSeconds: 7 * 86_400))
         }
+        return windows
+    }
+
+    /// 枠のidに使う。表示名が変わってもidが崩れないよう英数字だけに落とす。
+    private static func slug(_ name: String) -> String {
+        let cleaned = name.lowercased().map { $0.isLetter || $0.isNumber ? $0 : "-" }
+        return String(String(cleaned).prefix(32))
+    }
+
+
+    private static func fromAPI(_ result: ClaudeUsageAPI.FetchResult) -> AgentUsage {
+        let payload = result.payload
+        // 枠が増減しても追えるよう、まとめて来る `limits` を優先する。
+        // 固定キーだけを見ていると、5時間制限が外れた環境や、モデル別の週枠が
+        // `weekly_scoped` へ移ったあとの値を取りこぼす。
+        var windows = windows(from: payload.limits ?? [])
+        if windows.isEmpty { windows = legacyWindows(from: payload) }
 
         guard !windows.isEmpty else { return fromStatusLine(apiFailure: .networkOrServer) }
 

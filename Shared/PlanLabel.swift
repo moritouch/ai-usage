@@ -21,10 +21,12 @@ enum PlanLabel {
         "business": "Business",
         "enterprise": "Enterprise",
         "edu": "Edu",
-        // Anthropic / Claude。倍率付きの識別子で来ることがあるが、等級は表に出さない。
+        // Anthropic / Claude。2026年10月の改称で Max 5x → Max、Max 20x → Ultra になった。
+        // 識別子は `default_claude_max_20x` のまま来るので、表示側で読み替える。
         "max": "Max",
-        "max5x": "Max 5x",
-        "max20x": "Max 20x",
+        "max5x": "Max",
+        "max20x": "Ultra",
+        "ultra": "Ultra",
     ]
 
     /// OpenAI / Codex。識別子は `codex app-server` が返す `planType`。
