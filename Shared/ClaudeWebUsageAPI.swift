@@ -74,9 +74,23 @@ enum ClaudeWebUsageAPI {
     }
 
     /// 契約プラン。claude.ai 経路では応答に含まれないため、ログイン済みの記録から拾う。
-    /// `claude_pro` のような識別子で入っているので、表示名への変換は `PlanLabel` に任せる。
+    /// `claude_pro` のような識別子だけでは Max と Ultra を取り違えるので、
+    /// 等級と表示名も併せて渡す。表示名への変換は `PlanLabel` に任せる。
     static func localPlan() -> String? {
-        localAccount()?["organizationType"] as? String
+        localAccount().flatMap(plan(fromAccount:))
+    }
+
+    static func plan(fromAccount account: [String: Any]) -> String? {
+        PlanLabel.anthropicPlan(
+            subscriptionType: account["organizationType"] as? String,
+            rateLimitTier: account["organizationRateLimitTier"] as? String,
+            displayName: account["planDisplayName"] as? String
+        )
+    }
+
+    /// Claude自身が記録しているプランの表示名。改称にそのまま追従できる手がかり。
+    static func localPlanDisplayName() -> String? {
+        localAccount()?["planDisplayName"] as? String
     }
 
     private static func localAccount() -> [String: Any]? {

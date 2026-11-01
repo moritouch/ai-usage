@@ -204,6 +204,55 @@ final class UsageModelsTests: XCTestCase {
         )
     }
 
+    /// Claudeが自分で記録している表示名があれば、こちらの対応表より先にそれを使う。
+    /// 等級の識別子は据え置きで呼び名だけ変わることがあり、そのときに追従できる唯一の手がかり。
+    func testPlanLabelPrefersTheNameClaudeRecordsForItself() {
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(
+                subscriptionType: "max",
+                rateLimitTier: "default_claude_max_20x",
+                displayName: "Hyper"
+            ),
+            "Hyper"
+        )
+        // 空の表示名は手がかりにならない。等級の対応表へ戻ること。
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(
+                subscriptionType: "max",
+                rateLimitTier: "default_claude_max_20x",
+                displayName: "   "
+            ),
+            "Ultra"
+        )
+    }
+
+    /// session key経路はKeychainの資格情報を持たず、`~/.claude.json` の記録だけが頼り。
+    /// `organizationType` は `claude_max` としか言わないので、等級と表示名まで見ること。
+    /// 見落とすと、OAuth経路では Ultra だった表示がこの経路で Max に戻ってしまう。
+    func testClaudeWebPlanReadsTheTierFromTheLocalAccount() {
+        XCTAssertEqual(
+            ClaudeWebUsageAPI.plan(fromAccount: [
+                "organizationType": "claude_max",
+                "organizationRateLimitTier": "default_claude_max_20x",
+                "planDisplayName": "Ultra",
+            ]),
+            "Ultra"
+        )
+        // 表示名がまだ記録されていない版でも、等級から読めること。
+        XCTAssertEqual(
+            ClaudeWebUsageAPI.plan(fromAccount: [
+                "organizationType": "claude_max",
+                "organizationRateLimitTier": "default_claude_max_20x",
+            ]),
+            "Ultra"
+        )
+        XCTAssertEqual(
+            ClaudeWebUsageAPI.plan(fromAccount: ["organizationType": "claude_pro"]),
+            "Pro"
+        )
+        XCTAssertNil(ClaudeWebUsageAPI.plan(fromAccount: [:]))
+    }
+
     /// 知らない等級の形で倍率を名乗らせない。元のプラン表記へ戻ること。
     func testPlanLabelFallsBackWhenTheTierIsUnfamiliar() {
         XCTAssertEqual(

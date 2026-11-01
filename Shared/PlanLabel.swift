@@ -113,8 +113,17 @@ enum PlanLabel {
 extension PlanLabel {
     /// Claudeのプラン表記。倍率は `rateLimitTier`（例: `default_claude_max_20x`）にしか
     /// 入っておらず、`subscriptionType` は `max` としか言わない。
-    /// 等級が対応表にある形のときだけそちらを採り、知らない形なら従来どおりの表記に戻す。
-    static func anthropicPlan(subscriptionType: String?, rateLimitTier: String?) -> String? {
+    ///
+    /// 同じ等級のまま呼び名だけが変わることがある（2026年10月の Max 20x → Ultra）。
+    /// Claude自身が記録している表示名（`~/.claude.json` の `planDisplayName`）が
+    /// あればそれを最優先で採り、改称にこちらの対応表より先に追従する。
+    /// 無ければ等級の対応表、それも知らない形なら従来どおりの表記に戻す。
+    static func anthropicPlan(
+        subscriptionType: String?,
+        rateLimitTier: String?,
+        displayName: String? = nil
+    ) -> String? {
+        if let displayName, let named = normalize(displayName) { return named }
         if let tier = rateLimitTier, let graded = knownLabel(for: tier) { return graded }
         return normalize(subscriptionType)
     }
