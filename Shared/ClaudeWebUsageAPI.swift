@@ -81,11 +81,10 @@ enum ClaudeWebUsageAPI {
     }
 
     static func plan(fromAccount account: [String: Any]) -> String? {
-        PlanLabel.anthropicPlan(
+        plan(
             subscriptionType: account["organizationType"] as? String,
             rateLimitTier: account["organizationRateLimitTier"] as? String,
-            seatTier: account["seatTier"] as? String,
-            displayName: account["planDisplayName"] as? String
+            account: account
         )
     }
 
@@ -93,12 +92,20 @@ enum ClaudeWebUsageAPI {
     /// Claude自身の表示名（改称への追従）とシートの種類（TeamのPremiumなど）は
     /// ログイン記録から補う。
     static func plan(subscriptionType: String?, rateLimitTier: String?) -> String? {
-        let account = localAccount()
-        return PlanLabel.anthropicPlan(
+        plan(subscriptionType: subscriptionType, rateLimitTier: rateLimitTier, account: localAccount() ?? [:])
+    }
+
+    /// 両経路で、ログイン記録から読む手がかりをそろえる。
+    private static func plan(
+        subscriptionType: String?,
+        rateLimitTier: String?,
+        account: [String: Any]
+    ) -> String? {
+        PlanLabel.anthropicPlan(
             subscriptionType: subscriptionType,
             rateLimitTier: rateLimitTier,
-            seatTier: account?["seatTier"] as? String,
-            displayName: account?["planDisplayName"] as? String
+            seatTier: account["seatTier"] as? String,
+            displayName: account["planDisplayName"] as? String
         )
     }
 

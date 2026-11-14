@@ -111,12 +111,9 @@ enum PlanLabel {
 }
 
 extension PlanLabel {
-    /// `rateLimitTier` で読み替えてよい契約。等級が表すのは使える枠の大きさで、
-    /// それがプラン名（Max / Ultra）に当たるのは個人のMax系だけ。TeamのPremiumシートも
-    /// `default_claude_max_5x` で来るので、ほかの契約に当てると「Max」と取り違える。
-    private static let tierGradedPlans: Set<String> = ["max", "max5x", "max20x", "ultra"]
-
-    /// シートごとに枠が変わる組織の契約。等級ではなくシートの種類で表記を分ける。
+    /// シートごとに枠が変わる組織の契約。等級（`rateLimitTier`）が表すのはシートの枠で、
+    /// プラン名ではない。TeamのPremiumシートは個人のMaxと同じ `default_claude_max_5x` で
+    /// 来るので、等級で読み替えると「Max」と取り違える。シートの種類で表記を分ける。
     private static let seatedPlans: Set<String> = ["team", "enterprise"]
 
     /// シートの種類（`~/.claude.json` の `seatTier`）とプラン名に添える呼び名。
@@ -156,12 +153,8 @@ extension PlanLabel {
         if let plan, seatedPlans.contains(plan), let name = known[plan] {
             return seatName(seatTier).map { "\(name) \($0)" } ?? name
         }
-        // 契約の種類が分からないときは、従来どおり等級を手がかりにする。
-        if plan.map(tierGradedPlans.contains) ?? true,
-           let tier = rateLimitTier,
-           let graded = knownLabel(for: tier) {
-            return graded
-        }
+        // 個人のプランは従来どおり等級を優先する。
+        if let tier = rateLimitTier, let graded = knownLabel(for: tier) { return graded }
         return normalize(subscriptionType)
     }
 

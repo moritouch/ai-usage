@@ -297,10 +297,15 @@ final class UsageModelsTests: XCTestCase {
         XCTAssertEqual(
             ClaudeWebUsageAPI.plan(fromAccount: [
                 "organizationType": "claude_team",
-                "organizationRateLimitTier": "default_raven",
+                "organizationRateLimitTier": "default_org_tier",
                 "seatTier": "team_tier_1",
             ]),
             "Team Premium"
+        )
+        // 個人のプランは従来どおり等級を優先する。種類の記録が昇格に遅れても Max と読めること。
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(subscriptionType: "pro", rateLimitTier: "default_claude_max_5x"),
+            "Max"
         )
     }
 
