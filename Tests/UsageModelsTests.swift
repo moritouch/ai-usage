@@ -309,6 +309,57 @@ final class UsageModelsTests: XCTestCase {
         )
     }
 
+    /// Claudeが組織に表示名を記録しても、シートの種類は消さない。すでに含んでいれば重ねない。
+    func testPlanLabelAddsTheSeatToTheRecordedName() {
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(
+                subscriptionType: "team",
+                rateLimitTier: nil,
+                seatTier: "team_tier_1",
+                displayName: "Team"
+            ),
+            "Team Premium"
+        )
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(
+                subscriptionType: "team",
+                rateLimitTier: nil,
+                seatTier: "team_standard",
+                displayName: "Team Standard"
+            ),
+            "Team Standard"
+        )
+    }
+
+    /// OAuth経路でログイン記録が別の契約のものなら、その表示名やシートを当てない。
+    func testOAuthPlanIgnoresARecordFromAnotherPlan() {
+        let team: [String: Any] = [
+            "organizationType": "claude_team",
+            "seatTier": "team_tier_1",
+            "planDisplayName": "Team",
+        ]
+        XCTAssertEqual(
+            ClaudeWebUsageAPI.plan(subscriptionType: "team", rateLimitTier: nil, recordedAccount: team),
+            "Team Premium"
+        )
+        XCTAssertEqual(
+            ClaudeWebUsageAPI.plan(
+                subscriptionType: "max",
+                rateLimitTier: "default_claude_max_20x",
+                recordedAccount: team
+            ),
+            "Ultra"
+        )
+        XCTAssertEqual(
+            ClaudeWebUsageAPI.plan(
+                subscriptionType: "team",
+                rateLimitTier: "default_claude_max_5x",
+                recordedAccount: ["organizationType": "claude_max", "seatTier": "team_tier_1"]
+            ),
+            "Team"
+        )
+    }
+
     /// 知らない等級の形で倍率を名乗らせない。元のプラン表記へ戻ること。
     func testPlanLabelFallsBackWhenTheTierIsUnfamiliar() {
         XCTAssertEqual(

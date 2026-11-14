@@ -85,10 +85,15 @@ enum PlanLabel {
         return key
     }
 
+    /// 読めない値を落としてから、対応表を引くための鍵にする。
+    private static func tableKey(_ raw: String?) -> String? {
+        guard let raw, let trimmed = sanitized(raw) else { return nil }
+        return lookupKey(for: trimmed)
+    }
+
     /// 対応表に載っている場合だけ表示名を返す。推測した整形はしない。
     static func knownLabel(for raw: String, vendor: Vendor = .any) -> String? {
-        guard let trimmed = sanitized(raw) else { return nil }
-        let key = lookupKey(for: trimmed)
+        guard let key = tableKey(raw) else { return nil }
         if vendor == .openAI, let mapped = openAI[key] { return mapped }
         return known[key]
     }
@@ -139,7 +144,7 @@ extension PlanLabel {
     /// 同じ等級のまま呼び名だけが変わることがある（2026年10月の Max 20x → Ultra）。
     /// Claude自身が記録している表示名（`~/.claude.json` の `planDisplayName`）が
     /// あればそれを最優先で採り、改称にこちらの対応表より先に追従する。
-    /// Team / Enterpriseはシートの種類で「Team Premium」のように分ける。
+    /// Team / Enterpriseはシートの種類で「Team Premium」のように分ける。表示名にも添える。
     /// それ以外は等級の対応表、それも知らない形なら従来どおりの表記に戻す。
     static func anthropicPlan(
         subscriptionType: String?,
@@ -147,20 +152,32 @@ extension PlanLabel {
         seatTier: String? = nil,
         displayName: String? = nil
     ) -> String? {
-        if let displayName, let named = normalize(displayName) { return named }
+        let plan = tableKey(subscriptionType)
+        let seated = plan.map(seatedPlans.contains) ?? false
+        let seat = seated ? tableKey(seatTier).flatMap { seatNames[$0] } : nil
 
-        let plan = subscriptionType.flatMap(sanitized).map(lookupKey(for:))
-        if let plan, seatedPlans.contains(plan), let name = known[plan] {
-            return seatName(seatTier).map { "\(name) \($0)" } ?? name
+        if let displayName, let named = normalize(displayName) {
+            return adding(seat, to: named)
+        }
+        if seated, let plan, let name = known[plan] {
+            return adding(seat, to: name)
         }
         // 個人のプランは従来どおり等級を優先する。
         if let tier = rateLimitTier, let graded = knownLabel(for: tier) { return graded }
         return normalize(subscriptionType)
     }
 
-    private static func seatName(_ raw: String?) -> String? {
-        guard let raw, let trimmed = sanitized(raw) else { return nil }
-        return seatNames[lookupKey(for: trimmed)]
+    /// 2つの記録が同じ契約の種類を指すか。`claude_team` と `team` は同じとみなす。
+    /// どちらかが読めなければ、同じとは言えないのでfalse。
+    static func sameAnthropicPlan(_ lhs: String?, _ rhs: String?) -> Bool {
+        guard let lhs = tableKey(lhs), let rhs = tableKey(rhs) else { return false }
+        return lhs == rhs
+    }
+
+    /// プラン名にシートの種類を添える。すでに含んでいれば重ねない。
+    private static func adding(_ seat: String?, to name: String) -> String {
+        guard let seat, name.range(of: seat, options: .caseInsensitive) == nil else { return name }
+        return String("\(name) \(seat)".prefix(128))
     }
 }
 

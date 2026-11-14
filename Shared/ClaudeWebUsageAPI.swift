@@ -92,7 +92,21 @@ enum ClaudeWebUsageAPI {
     /// Claude自身の表示名（改称への追従）とシートの種類（TeamのPremiumなど）は
     /// ログイン記録から補う。
     static func plan(subscriptionType: String?, rateLimitTier: String?) -> String? {
-        plan(subscriptionType: subscriptionType, rateLimitTier: rateLimitTier, account: localAccount() ?? [:])
+        plan(subscriptionType: subscriptionType, rateLimitTier: rateLimitTier, recordedAccount: localAccount())
+    }
+
+    /// 記録が資格情報と別の契約（個人のMaxとTeamなど）のものなら、表示名もシートも当てない。
+    /// Keychainの項目には組織IDが無いため、同じ種類の別組織までは見分けられない。
+    static func plan(
+        subscriptionType: String?,
+        rateLimitTier: String?,
+        recordedAccount: [String: Any]?
+    ) -> String? {
+        let matching = recordedAccount.flatMap { account in
+            PlanLabel.sameAnthropicPlan(account["organizationType"] as? String, subscriptionType)
+                ? account : nil
+        }
+        return plan(subscriptionType: subscriptionType, rateLimitTier: rateLimitTier, account: matching ?? [:])
     }
 
     /// 両経路で、ログイン記録から読む手がかりをそろえる。
