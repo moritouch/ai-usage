@@ -84,13 +84,22 @@ enum ClaudeWebUsageAPI {
         PlanLabel.anthropicPlan(
             subscriptionType: account["organizationType"] as? String,
             rateLimitTier: account["organizationRateLimitTier"] as? String,
+            seatTier: account["seatTier"] as? String,
             displayName: account["planDisplayName"] as? String
         )
     }
 
-    /// Claude自身が記録しているプランの表示名。改称にそのまま追従できる手がかり。
-    static func localPlanDisplayName() -> String? {
-        localAccount()?["planDisplayName"] as? String
+    /// OAuth経路のプラン。契約の種類と等級は資格情報から採り、資格情報に無い
+    /// Claude自身の表示名（改称への追従）とシートの種類（TeamのPremiumなど）は
+    /// ログイン記録から補う。
+    static func plan(subscriptionType: String?, rateLimitTier: String?) -> String? {
+        let account = localAccount()
+        return PlanLabel.anthropicPlan(
+            subscriptionType: subscriptionType,
+            rateLimitTier: rateLimitTier,
+            seatTier: account?["seatTier"] as? String,
+            displayName: account?["planDisplayName"] as? String
+        )
     }
 
     private static func localAccount() -> [String: Any]? {

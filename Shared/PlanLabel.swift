@@ -111,21 +111,63 @@ enum PlanLabel {
 }
 
 extension PlanLabel {
+    /// `rateLimitTier` で読み替えてよい契約。等級が表すのは使える枠の大きさで、
+    /// それがプラン名（Max / Ultra）に当たるのは個人のMax系だけ。TeamのPremiumシートも
+    /// `default_claude_max_5x` で来るので、ほかの契約に当てると「Max」と取り違える。
+    private static let tierGradedPlans: Set<String> = ["max", "max5x", "max20x", "ultra"]
+
+    /// シートごとに枠が変わる組織の契約。等級ではなくシートの種類で表記を分ける。
+    private static let seatedPlans: Set<String> = ["team", "enterprise"]
+
+    /// シートの種類（`~/.claude.json` の `seatTier`）とプラン名に添える呼び名。
+    /// Claude Code自身がシートを `premium` / `standard` と分類している識別子に合わせた。
+    /// 従量課金などそれ以外のシートと、種類が分からないシートはプラン名だけで表す。
+    private static let seatNames: [String: String] = [
+        "teamtier1": "Premium",
+        "teambendepnonprofitpremium": "Premium",
+        "teamlabspremium": "Premium",
+        "enterprisetier1": "Premium",
+        "enterprisebendeppremium": "Premium",
+        "teamstandard": "Standard",
+        "teambendepnonprofitstandard": "Standard",
+        "teamlabsstandard": "Standard",
+        "enterprisestandard": "Standard",
+        "enterprisenonprofit": "Standard",
+        "enterprisehighered": "Standard",
+    ]
+
     /// Claudeのプラン表記。倍率は `rateLimitTier`（例: `default_claude_max_20x`）にしか
     /// 入っておらず、`subscriptionType` は `max` としか言わない。
     ///
     /// 同じ等級のまま呼び名だけが変わることがある（2026年10月の Max 20x → Ultra）。
     /// Claude自身が記録している表示名（`~/.claude.json` の `planDisplayName`）が
     /// あればそれを最優先で採り、改称にこちらの対応表より先に追従する。
-    /// 無ければ等級の対応表、それも知らない形なら従来どおりの表記に戻す。
+    /// Team / Enterpriseはシートの種類で「Team Premium」のように分ける。
+    /// それ以外は等級の対応表、それも知らない形なら従来どおりの表記に戻す。
     static func anthropicPlan(
         subscriptionType: String?,
         rateLimitTier: String?,
+        seatTier: String? = nil,
         displayName: String? = nil
     ) -> String? {
         if let displayName, let named = normalize(displayName) { return named }
-        if let tier = rateLimitTier, let graded = knownLabel(for: tier) { return graded }
+
+        let plan = subscriptionType.flatMap(sanitized).map(lookupKey(for:))
+        if let plan, seatedPlans.contains(plan), let name = known[plan] {
+            return seatName(seatTier).map { "\(name) \($0)" } ?? name
+        }
+        // 契約の種類が分からないときは、従来どおり等級を手がかりにする。
+        if plan.map(tierGradedPlans.contains) ?? true,
+           let tier = rateLimitTier,
+           let graded = knownLabel(for: tier) {
+            return graded
+        }
         return normalize(subscriptionType)
+    }
+
+    private static func seatName(_ raw: String?) -> String? {
+        guard let raw, let trimmed = sanitized(raw) else { return nil }
+        return seatNames[lookupKey(for: trimmed)]
     }
 }
 
