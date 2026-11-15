@@ -253,6 +253,113 @@ final class UsageModelsTests: XCTestCase {
         XCTAssertNil(ClaudeWebUsageAPI.plan(fromAccount: [:]))
     }
 
+    /// TeamのPremiumシートは等級が `default_claude_max_5x` で来る。等級で読み替えると
+    /// 「Max」になってしまうので、契約の種類とシートの種類で表すこと。
+    func testPlanLabelKeepsTeamSeatsApartFromMax() {
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(
+                subscriptionType: "team",
+                rateLimitTier: "default_claude_max_5x",
+                seatTier: "team_tier_1"
+            ),
+            "Team Premium"
+        )
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(
+                subscriptionType: "team",
+                rateLimitTier: "default_claude_ai",
+                seatTier: "team_standard"
+            ),
+            "Team Standard"
+        )
+        // シートの種類が分からなくても、Maxとは名乗らせない。種類は推測せず付けない。
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(subscriptionType: "team", rateLimitTier: "default_claude_max_5x"),
+            "Team"
+        )
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(
+                subscriptionType: "team",
+                rateLimitTier: "default_claude_max_5x",
+                seatTier: "team_tier_9"
+            ),
+            "Team"
+        )
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(
+                subscriptionType: "enterprise",
+                rateLimitTier: "default_claude_max_5x",
+                seatTier: "enterprise_tier_1"
+            ),
+            "Enterprise Premium"
+        )
+        // session key経路はログイン記録だけが頼り。組織の等級は別の識別子で来る。
+        XCTAssertEqual(
+            ClaudeWebUsageAPI.plan(fromAccount: [
+                "organizationType": "claude_team",
+                "organizationRateLimitTier": "default_org_tier",
+                "seatTier": "team_tier_1",
+            ]),
+            "Team Premium"
+        )
+        // 個人のプランは従来どおり等級を優先する。種類の記録が昇格に遅れても Max と読めること。
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(subscriptionType: "pro", rateLimitTier: "default_claude_max_5x"),
+            "Max"
+        )
+    }
+
+    /// Claudeが組織に表示名を記録しても、シートの種類は消さない。すでに含んでいれば重ねない。
+    func testPlanLabelAddsTheSeatToTheRecordedName() {
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(
+                subscriptionType: "team",
+                rateLimitTier: nil,
+                seatTier: "team_tier_1",
+                displayName: "Team"
+            ),
+            "Team Premium"
+        )
+        XCTAssertEqual(
+            PlanLabel.anthropicPlan(
+                subscriptionType: "team",
+                rateLimitTier: nil,
+                seatTier: "team_standard",
+                displayName: "Team Standard"
+            ),
+            "Team Standard"
+        )
+    }
+
+    /// OAuth経路でログイン記録が別の契約のものなら、その表示名やシートを当てない。
+    func testOAuthPlanIgnoresARecordFromAnotherPlan() {
+        let team: [String: Any] = [
+            "organizationType": "claude_team",
+            "seatTier": "team_tier_1",
+            "planDisplayName": "Team",
+        ]
+        XCTAssertEqual(
+            ClaudeWebUsageAPI.plan(subscriptionType: "team", rateLimitTier: nil, recordedAccount: team),
+            "Team Premium"
+        )
+        XCTAssertEqual(
+            ClaudeWebUsageAPI.plan(
+                subscriptionType: "max",
+                rateLimitTier: "default_claude_max_20x",
+                recordedAccount: team
+            ),
+            "Ultra"
+        )
+        XCTAssertEqual(
+            ClaudeWebUsageAPI.plan(
+                subscriptionType: "team",
+                rateLimitTier: "default_claude_max_5x",
+                recordedAccount: ["organizationType": "claude_max", "seatTier": "team_tier_1"]
+            ),
+            "Team"
+        )
+    }
+
     /// 知らない等級の形で倍率を名乗らせない。元のプラン表記へ戻ること。
     func testPlanLabelFallsBackWhenTheTierIsUnfamiliar() {
         XCTAssertEqual(

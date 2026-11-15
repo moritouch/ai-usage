@@ -293,10 +293,9 @@ actor ClaudeUsageAPI {
 
         let first = await perform(
             usageRequest(for: credential),
-            plan: PlanLabel.anthropicPlan(
+            plan: ClaudeWebUsageAPI.plan(
                 subscriptionType: credential.subscriptionType,
-                rateLimitTier: credential.rateLimitTier,
-                displayName: ClaudeWebUsageAPI.localPlanDisplayName()
+                rateLimitTier: credential.rateLimitTier
             )
         )
         guard case .unauthorized = first, credential.refreshToken != nil else {
@@ -311,10 +310,9 @@ actor ClaudeUsageAPI {
         case let .credential(refreshed):
             return await perform(
                 usageRequest(for: refreshed),
-                plan: PlanLabel.anthropicPlan(
+                plan: ClaudeWebUsageAPI.plan(
                     subscriptionType: refreshed.subscriptionType,
-                    rateLimitTier: refreshed.rateLimitTier,
-                    displayName: ClaudeWebUsageAPI.localPlanDisplayName()
+                    rateLimitTier: refreshed.rateLimitTier
                 )
             )
         case let .rateLimited(retryAt):
