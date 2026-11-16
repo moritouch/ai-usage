@@ -57,7 +57,7 @@
 "settings.noAgents" = "No agent information is available yet.";
 "settings.notSupported" = "Not supported";
 "settings.claudeSession" = "Claude Code (session key)";
-"settings.claudeSession.detail" = "A fallback for when terminal Claude Code cannot supply the usage: it is not installed, or you have not used it in a while and its credentials have expired. Sign in at claude.ai and AI Usage keeps only what it needs to read your usage, in a Keychain item it owns. Claude Code's own credentials are never touched.";
+"settings.claudeSession.detail" = "A fallback for when terminal Claude Code cannot supply the usage: it is not installed, or its credentials can no longer be renewed. Sign in at claude.ai and AI Usage keeps only what it needs to read your usage, in a Keychain item it owns. Claude Code's own credentials are never touched.";
 "settings.claudeSession.warning" = "Where terminal Claude Code is available, signing in there is the better option. This route uses an API that is not public, so it can stop working when that changes.";
 "settings.claudeSession.signIn" = "Sign in at claude.ai";
 "settings.claudeSession.remove" = "Remove";
@@ -116,7 +116,7 @@
 "help.checkedExplanation" = "“Last checked” is when AI Usage attempted a refresh. A recent check can remain stale if no new valid values were obtained.";
 "help.steps" = "What to try";
 "help.claude.title" = "Claude Code";
-"help.claude.body" = "Usage comes from the credentials terminal Claude Code stores in the Keychain. The desktop app alone never writes them, so run claude in Terminal and sign in once. AI Usage reads them through /usr/bin/security, the same tool Claude Code uses, so there is normally no Keychain prompt. If a prompt naming security appears and you decline it, AI Usage waits until you choose Check Again before asking again. When terminal Claude Code is installed, AI Usage only reads those credentials and leaves renewing them to the CLI, so when it reports expired credentials, run claude in Terminal. Without the terminal CLI installed, AI Usage renews them itself. Also check your network. For the statusLine source, complete a normal response in terminal Claude Code. Wait if rate-limited.";
+"help.claude.body" = "Usage comes from the credentials terminal Claude Code stores in the Keychain. The desktop app alone never writes them, so run claude in Terminal and sign in once. AI Usage reads them through /usr/bin/security, the same tool Claude Code uses, so there is normally no Keychain prompt. If a prompt naming security appears and you decline it, AI Usage waits until you choose Check Again before asking again. When they expire, AI Usage renews them itself the same way Claude Code does, so you do not need to keep using the terminal CLI. If the renewal is refused, sign in to Claude Code again. Also check your network. For the statusLine source, complete a normal response in terminal Claude Code. Wait if rate-limited.";
 "help.codex.title" = "Codex";
 "help.codex.body" = "Usage comes from the official Codex client. AI Usage runs codex app-server and reads the same values /status shows, without running a model or writing anything to ~/.codex. It looks for codex where command line tools are usually installed and inside ChatGPT.app, so installing either the CLI or the official app is enough. Without one of them it falls back to the local session log, which only terminal Codex updates: complete a normal Codex response, then check again. Checking again does not update that log by itself.";
 "help.grok.title" = "Grok";
@@ -159,7 +159,6 @@
 "note.claude.signInExpired" = "Your Claude Code sign-in expired and could not be refreshed. Sign in to Claude Code again, then choose Check Again.";
 "note.claude.credentialsRejected" = "Claude credentials were rejected; sign in to Claude Code again";
 "note.claude.terminalSignIn" = "Terminal Claude Code sign-in is required. Run claude in Terminal and sign in, then choose Check Again. The desktop app alone does not store the credentials this reads.";
-"note.claude.refreshDeferred" = "Claude credentials expired. Run claude in Terminal to refresh them, then choose Check Again.";
 "note.claude.sessionKeyRejected" = "The saved claude.ai session key was rejected. Sign in at claude.ai and paste a new key in Settings.";
 "note.claude.dataExpired" = "Stored usage data expired. Sign in to Claude Code again, then choose Check Again.";
 "note.codex.dataExpired" = "Stored usage data expired. Complete a normal Codex response, then choose Check Again.";

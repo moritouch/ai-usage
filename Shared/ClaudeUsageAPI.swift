@@ -67,9 +67,6 @@ actor ClaudeUsageAPI {
         /// Claudeにはログイン済みだが、CLIのOAuthトークンがKeychainに無い。
         /// デスクトップ版だけを使っている場合はこの状態のまま変わらない。
         case terminalSignInRequired
-        /// 期限切れだが、更新はターミナル版CLIに任せる。
-        /// refresh tokenは回転するので、2か所から更新しない。
-        case refreshDeferredToCLI
         /// 設定済みのsession keyが claude.ai に拒否された。
         case sessionKeyRejected
         case unauthorized
@@ -108,7 +105,6 @@ actor ClaudeUsageAPI {
         case keychainAccessDenied
         case credentialExpired
         case terminalSignInRequired
-        case refreshDeferredToCLI
         case unauthorized
         case forbidden
         case failed
@@ -195,9 +191,6 @@ actor ClaudeUsageAPI {
         case .terminalSignInRequired:
             recordFailure(now: now, reason: .terminalSignInRequired)
 
-        case .refreshDeferredToCLI:
-            recordFailure(now: now, reason: .refreshDeferredToCLI)
-
         case .sessionKeyRejected:
             recordFailure(now: now, reason: .sessionKeyRejected)
 
@@ -248,21 +241,19 @@ actor ClaudeUsageAPI {
             credential = current
 
         case let .refreshable(expired):
-            // CLIが居るなら書き戻さない。奪い合いを起こさず、更新はCLIに委ねる。
-            // ただしCLIをしばらく使っていないと期限切れのまま古い値が残るので、
-            // session keyがあるならそちらで読む。
-            if ClaudeKeychain.terminalCLIInstalled() {
-                return await sessionKeyOutcome() ?? .refreshDeferredToCLI
-            }
+            // ターミナル版が入っていても、ここで更新する。読み書きはClaude Codeと同じ
+            // /usr/bin/securityを通すので互いを締め出さず、更新はClaude Codeと同じlockと
+            // 書込み前の照合で行うので、ターミナル版の別プロセスが更新するのと変わらない。
+            // ターミナル版に任せると、使わない日は期限切れのまま止まってしまう。
             switch await ClaudeOAuthRefresher.refresh(expired) {
             case let .credential(refreshed):
                 credential = refreshed
             case let .rateLimited(retryAt):
                 return .rateLimited(retryAt: retryAt)
             case .unauthorized:
-                return .credentialExpired
+                return await sessionKeyOutcome() ?? .credentialExpired
             case .keychainUnavailable:
-                return .credentialUnavailable
+                return await sessionKeyOutcome() ?? .credentialUnavailable
             case .temporarilyUnavailable:
                 return .failed
             case .networkOrServer:
@@ -301,9 +292,6 @@ actor ClaudeUsageAPI {
         guard case .unauthorized = first, credential.refreshToken != nil else {
             return first
         }
-        if ClaudeKeychain.terminalCLIInstalled() {
-            return await sessionKeyOutcome() ?? .refreshDeferredToCLI
-        }
 
         // 401時はKeychainを再読込し、兄弟更新がなければ強制refreshして1回だけ再試行する。
         switch await ClaudeOAuthRefresher.refresh(credential, force: true) {
@@ -330,7 +318,7 @@ actor ClaudeUsageAPI {
 
     /// 設定済みのsession keyで読む。未設定ならnil。
     ///
-    /// OAuth側にまだ打つ手がある場面（CLIで更新できる、など）では、失敗しても
+    /// OAuth側にまだ打つ手がある場面（Claude Codeへ再ログインすれば直る、など）では、失敗しても
     /// nilを返してOAuth側の案内を優先する。鍵が拒否されたことを伝えるべきなのは、
     /// OAuth側に手が無く、この経路が唯一の頼りだった場合だけ。
     private static func sessionKeyOutcome(

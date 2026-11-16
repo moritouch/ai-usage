@@ -87,25 +87,6 @@ enum ClaudeKeychain {
         return root["oauthAccount"] is [String: Any]
     }
 
-    /// ターミナル版CLIが入っているか。
-    ///
-    /// CLIが居るならトークンの更新はCLIに任せ、こちらは読むだけにする。
-    /// refresh tokenは更新のたびに回転するので、2か所から更新すると片方が
-    /// 使えなくなった古いtokenを掴みうる。
-    /// デスクトップ版が内包するバイナリは対象外。
-    static func terminalCLIInstalled() -> Bool {
-        let manager = FileManager.default
-        return terminalCLISearchPaths().contains {
-            manager.isExecutableFile(atPath: $0.appendingPathComponent("claude").path)
-        }
-    }
-
-    /// `claude` を探すディレクトリ。
-    /// npmのglobal installはnvm/fnm配下へ入ることがあるため、固定パスだけでは足りない。
-    static func terminalCLISearchPaths() -> [URL] {
-        CLILocator.searchPaths()
-    }
-
     /// 契約プラン名（"max" など）。無い版もあるので任意項目として扱う。
     static func subscriptionType() -> String? {
         switch credentialState() {
