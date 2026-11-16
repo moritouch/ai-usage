@@ -55,6 +55,12 @@ enum ClaudeOAuthRefresher {
         force: Bool = false
     ) async -> Outcome {
         guard let lock = await ClaudeOAuthRefreshLock.acquire() else {
+            // 別のプロセス（ターミナル版など）が更新中。待つ間に新しいtokenが
+            // 書き込まれていれば、それを採用する。
+            if case let .valid(current) = ClaudeKeychain.credentialState(),
+               current.accessToken != original.accessToken {
+                return .credential(current)
+            }
             return .temporarilyUnavailable
         }
 
@@ -120,9 +126,10 @@ enum ClaudeOAuthRefresher {
             )
         }
 
-        // 通信中にClaude側がstale lockを置換した場合、競合したKeychainへは書き込まない。
-        guard lock.isValid else { return .temporarilyUnavailable }
-
+        // 通信中にlockを失っても、受け取ったtokenは捨てない。refresh tokenはもう回転して
+        // いるので、捨てるとKeychainには失効したtokenだけが残り、Claude Codeまで
+        // ログアウトする。書き戻しは読取時と一致する場合だけなので、別のプロセスが
+        // 先に書いていればそちらを採用する。
         switch reply {
         case let .payload(payload):
             let rotatedRefreshToken = payload.refresh_token ?? refreshToken

@@ -94,6 +94,10 @@ enum L10n {
             key = "note.claude.signInExpired"
         case "Claude usage needs a terminal Claude Code sign-in; run claude in Terminal, then check again":
             key = "note.claude.terminalSignIn"
+        case "Claude credentials expired; run claude in Terminal to refresh them, then check again":
+            // 0.1.29までが保存したスナップショットに残る案内。今はアプリ自身が更新するので、
+            // 更新後の最初の取得で置き換わるまでは、最後の応答を表示中とだけ伝える。
+            key = "note.claude.lastResponse"
         case "The saved claude.ai session key was rejected; sign in at claude.ai and paste a new one in Settings":
             key = "note.claude.sessionKeyRejected"
         case "Claude credentials were rejected; sign in to Claude Code again":
