@@ -187,3 +187,120 @@ final class ClaudeOAuthRefresherTests: XCTestCase {
         )
     }
 }
+
+/// 使用量を読むまでの手順のうち、期限切れと更新の扱い。Keychainと通信は差し替える。
+/// ターミナル版の有無で更新を止めると、使わない日は期限切れのまま止まる（0.1.29まで）。
+final class ClaudeUsageAPIRefreshTests: XCTestCase {
+    private final class Calls: @unchecked Sendable {
+        private let lock = NSLock()
+        private var refreshes: [Bool] = []
+        private var sessionKeys: [Bool] = []
+        private var performed: [String] = []
+
+        func refresh(force: Bool) { lock.withLock { refreshes.append(force) } }
+        func sessionKey(reportingFailure: Bool) { lock.withLock { sessionKeys.append(reportingFailure) } }
+        func perform(_ accessToken: String) { lock.withLock { performed.append(accessToken) } }
+        var snapshot: (refreshes: [Bool], sessionKeys: [Bool], performed: [String]) {
+            lock.withLock { (refreshes, sessionKeys, performed) }
+        }
+    }
+
+    private static func credential(_ accessToken: String) -> ClaudeKeychain.OAuthCredential {
+        ClaudeKeychain.OAuthCredential(
+            accessToken: accessToken,
+            refreshToken: "refresh-\(accessToken)",
+            expiresAt: Date(),
+            scopes: [],
+            subscriptionType: "team",
+            rateLimitTier: nil,
+            clientID: nil
+        )
+    }
+
+    private static let payload = ClaudeUsageAPI.Payload(
+        five_hour: nil,
+        seven_day: ClaudeUsageAPI.Window(utilization: 3, resets_at: nil),
+        seven_day_opus: nil,
+        limits: nil
+    )
+
+    private func dependencies(
+        _ calls: Calls,
+        refresh: ClaudeOAuthRefresher.Outcome,
+        sessionKey: ClaudeUsageAPI.AttemptOutcome? = nil
+    ) -> ClaudeUsageAPI.Dependencies {
+        ClaudeUsageAPI.Dependencies(
+            credentialState: { .refreshable(Self.credential("expired")) },
+            refresh: { _, force in
+                calls.refresh(force: force)
+                return refresh
+            },
+            sessionKey: { reportingFailure in
+                calls.sessionKey(reportingFailure: reportingFailure)
+                return sessionKey
+            },
+            hasSignedInAccount: { true },
+            performUsage: { credential in
+                calls.perform(credential.accessToken)
+                return .success(Self.payload, plan: "Team")
+            }
+        )
+    }
+
+    private func label(_ outcome: ClaudeUsageAPI.AttemptOutcome) -> String {
+        switch outcome {
+        case .success: return "success"
+        case .refreshBusy: return "busy"
+        case .credentialExpired: return "expired"
+        case .credentialUnavailable: return "unavailable"
+        case .failed: return "failed"
+        default: return "other"
+        }
+    }
+
+    /// 期限切れなら、ほかの条件を見ずに更新してから新しいtokenで読む。
+    func testExpiredCredentialIsRenewedBeforeReadingUsage() async {
+        let calls = Calls()
+        let outcome = await ClaudeUsageAPI.prepareCredentialAndPerform(
+            using: dependencies(calls, refresh: .credential(Self.credential("renewed")))
+        )
+
+        XCTAssertEqual(label(outcome), "success")
+        XCTAssertEqual(calls.snapshot.refreshes, [false])
+        XCTAssertEqual(calls.snapshot.performed, ["renewed"])
+        XCTAssertEqual(calls.snapshot.sessionKeys, [])
+    }
+
+    /// 更新を拒否された、またはKeychainへ書けなかった場合は、session keyを先に試す。
+    func testFailedRenewalFallsBackToTheSessionKey() async {
+        for (refresh, withoutKey) in [
+            (ClaudeOAuthRefresher.Outcome.unauthorized, "expired"),
+            (.keychainUnavailable, "unavailable"),
+        ] {
+            let withKey = Calls()
+            let rescued = await ClaudeUsageAPI.prepareCredentialAndPerform(
+                using: dependencies(withKey, refresh: refresh, sessionKey: .success(Self.payload, plan: nil))
+            )
+            XCTAssertEqual(label(rescued), "success")
+            XCTAssertEqual(withKey.snapshot.sessionKeys, [false])
+
+            let noKey = Calls()
+            let failed = await ClaudeUsageAPI.prepareCredentialAndPerform(
+                using: dependencies(noKey, refresh: refresh)
+            )
+            XCTAssertEqual(label(failed), withoutKey)
+            XCTAssertEqual(noKey.snapshot.performed, [])
+        }
+    }
+
+    /// ターミナル版が更新中でlockを取れないのは、通信の失敗ではない。
+    func testBusyRefreshLockIsNotReportedAsAFailure() async {
+        let calls = Calls()
+        let outcome = await ClaudeUsageAPI.prepareCredentialAndPerform(
+            using: dependencies(calls, refresh: .temporarilyUnavailable)
+        )
+
+        XCTAssertEqual(label(outcome), "busy")
+        XCTAssertEqual(calls.snapshot.performed, [])
+    }
+}

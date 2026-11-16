@@ -52,7 +52,7 @@ Codexは公式クライアントの`codex app-server`を起動し、`/status`と
 
 Grok BotとCursorは使用量をMac内に残さないため、共通のアカウントから読み取ります。ログインは1回で両方に有効です。Grok Botの枠はターミナル版Grokとは別です。これらとclaude.aiの予備手段は、いずれも提供元が公開していないエンドポイントに依存しており、仕様変更で取得できなくなることがあります。ターミナル版Claude Codeが使える環境では、そちらでのログインをおすすめします。
 
-Claude Codeは、Claude CodeがmacOS Keychainへ保存した既存の認証情報を使って使用率を取得します。Keychainの読み書きはClaude Codeと同じく`/usr/bin/security`を通します。access tokenの期限が近い場合は、ターミナル版Claude Codeが入っていなければClaude Codeと同じOAuth token endpointで安全に更新し、refresh tokenが回転した場合だけ同じKeychain項目へ書き戻します。AI Usage用のAPIキーを別途作成する必要はありません。
+Claude Codeは、Claude CodeがmacOS Keychainへ保存した既存の認証情報を使って使用率を取得します。Keychainの読み書きはClaude Codeと同じく`/usr/bin/security`を通します。access tokenの期限が近い場合は、ターミナル版Claude Codeの有無にかかわらず、Claude Codeと同じOAuth token endpointとrefresh lockで安全に更新し、refresh tokenが回転した場合だけ同じKeychain項目へ書き戻します。AI Usage用のAPIキーを別途作成する必要はありません。
 
 > [!IMPORTANT]
 > Claude CodeのOAuth usage APIは、公開された安定契約を確認できない実験的な依存先です。Claude Code側の変更により、予告なく取得できなくなる可能性があります。

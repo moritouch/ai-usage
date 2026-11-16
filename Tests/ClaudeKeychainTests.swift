@@ -47,48 +47,6 @@ final class ClaudeKeychainTests: XCTestCase {
         XCTAssertEqual(ClaudeKeychain.payloadShape(wrongType), .malformed)
     }
 
-    /// CLIが居る間はトークン更新をCLIに任せる（refresh tokenは回転するため、
-    /// 2か所から更新すると片方が古いtokenを掴みうる）。デスクトップ版が内包する
-    /// バイナリは更新役にならないので、これをCLIと誤認すると更新役が誰も居なくなる。
-    func testTerminalCLIDetectionIgnoresTheDesktopBundledBinary() {
-        let bundledRoot = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Claude").path
-
-        XCTAssertFalse(
-            ClaudeKeychain.terminalCLISearchPaths().contains { $0.path.hasPrefix(bundledRoot) },
-            "デスクトップ版の内包バイナリを探索対象に含めてはいけない"
-        )
-    }
-
-    /// npmのglobal installはnvm/fnm配下へ入ることがあり、固定パスだけでは取りこぼす。
-    /// 取りこぼすと「CLIが居ない」と誤判定して書き戻し、CLIを締め出してしまう。
-    func testTerminalCLIDetectionCoversVersionManagerLayouts() {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let paths = ClaudeKeychain.terminalCLISearchPaths().map(\.path)
-
-        for fixed in ["/opt/homebrew/bin", "/usr/local/bin"] {
-            XCTAssertTrue(paths.contains(fixed), "\(fixed) を探索対象に含めるべき")
-        }
-
-        let nvmRoot = home.appendingPathComponent(".nvm/versions/node")
-        let nvmVersions = (try? FileManager.default.contentsOfDirectory(
-            at: nvmRoot, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
-        )) ?? []
-        for version in nvmVersions.prefix(64) {
-            XCTAssertTrue(
-                paths.contains(version.appendingPathComponent("bin").path),
-                "nvm配下の \(version.lastPathComponent) を探索対象に含めるべき"
-            )
-        }
-
-        let expected = ClaudeKeychain.terminalCLISearchPaths().contains {
-            FileManager.default.isExecutableFile(
-                atPath: $0.appendingPathComponent("claude").path
-            )
-        }
-        XCTAssertEqual(ClaudeKeychain.terminalCLIInstalled(), expected)
-    }
-
     func testCredentialMergeRotatesTokensAndPreservesUnknownFields() throws {
         let source: [String: Any] = [
             "claudeAiOauth": [

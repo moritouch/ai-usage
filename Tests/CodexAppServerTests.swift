@@ -69,4 +69,25 @@ final class CodexAppServerTests: XCTestCase {
     func testLocatorRejectsCommandsThatDoNotExist() {
         XCTAssertNil(CLILocator.locate("ai-usage-command-that-does-not-exist"))
     }
+
+    /// npmのglobal installはnvm配下へ入ることがあり、固定パスだけでは取りこぼす。
+    func testLocatorCoversVersionManagerLayouts() {
+        let paths = CLILocator.searchPaths().map(\.path)
+
+        for fixed in ["/opt/homebrew/bin", "/usr/local/bin"] {
+            XCTAssertTrue(paths.contains(fixed), "\(fixed) を探索対象に含めるべき")
+        }
+
+        let nvmRoot = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".nvm/versions/node")
+        let nvmVersions = (try? FileManager.default.contentsOfDirectory(
+            at: nvmRoot, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+        )) ?? []
+        for version in nvmVersions.prefix(64) {
+            XCTAssertTrue(
+                paths.contains(version.appendingPathComponent("bin").path),
+                "nvm配下の \(version.lastPathComponent) を探索対象に含めるべき"
+            )
+        }
+    }
 }

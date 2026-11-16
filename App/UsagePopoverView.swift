@@ -306,14 +306,22 @@ struct AgentRow: View {
             HStack(spacing: 6) {
                 Text(agent.name)
                     .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .layoutPriority(1)
                 if let plan = agent.plan {
+                    // Staleの印と並ぶと幅が足りず、「Team Premium」が2行に割れていた。
+                    // 幅が足りないときに譲るのはプラン名だけにする（Staleの印と並べ替えは
+                    // 元の幅のまま）。1行に保ち、少し縮め、それでも足りなければ末尾を省く。
                     Text(plan)
                         .font(.caption2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
                         .background(.quaternary, in: Capsule())
+                        .help(plan)
                 }
-                Spacer()
+                Spacer(minLength: 0)
                 if agent.displayStatus == .stale {
                     Button(action: showStaleHelp) {
                         Label(
@@ -327,6 +335,7 @@ struct AgentRow: View {
                         .background(Color.orange.opacity(0.2), in: Capsule())
                     }
                     .buttonStyle(.plain)
+                    .fixedSize()
                     .help(L10n.text("popover.stale.help", language: language))
                     .accessibilityLabel(
                         L10n.text("popover.stale.accessibility", language: language)
@@ -413,8 +422,7 @@ private extension AgentUsage {
     /// ターミナルログインが要る場合は、再ログインでは直らないので文言を分ける。
     var attentionAction: AttentionAction? {
         switch note {
-        case "Claude usage needs a terminal Claude Code sign-in; run claude in Terminal, then check again",
-             "Claude credentials expired; run claude in Terminal to refresh them, then check again":
+        case "Claude usage needs a terminal Claude Code sign-in; run claude in Terminal, then check again":
             return AttentionAction(labelKey: "popover.claudeTerminalSignIn", symbol: "terminal")
         case "Claude sign-in expired and could not be refreshed; sign in to Claude Code again, then check again",
              "Claude credentials were rejected; sign in to Claude Code again",
