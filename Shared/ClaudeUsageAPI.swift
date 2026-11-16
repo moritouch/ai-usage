@@ -245,20 +245,11 @@ actor ClaudeUsageAPI {
             // /usr/bin/securityを通すので互いを締め出さず、更新はClaude Codeと同じlockと
             // 書込み前の照合で行うので、ターミナル版の別プロセスが更新するのと変わらない。
             // ターミナル版に任せると、使わない日は期限切れのまま止まってしまう。
-            switch await ClaudeOAuthRefresher.refresh(expired) {
-            case let .credential(refreshed):
-                credential = refreshed
-            case let .rateLimited(retryAt):
-                return .rateLimited(retryAt: retryAt)
-            case .unauthorized:
-                return await sessionKeyOutcome() ?? .credentialExpired
-            case .keychainUnavailable:
-                return await sessionKeyOutcome() ?? .credentialUnavailable
-            case .temporarilyUnavailable:
-                return .failed
-            case .networkOrServer:
-                return .failed
+            let refresh = await ClaudeOAuthRefresher.refresh(expired)
+            guard case let .credential(refreshed) = refresh else {
+                return await outcome(ofFailedRefresh: refresh)
             }
+            credential = refreshed
 
         case let .unavailable(failure):
             // OAuth資格情報が無い環境（デスクトップ版アプリのみなど）向けの任意経路。
@@ -294,24 +285,35 @@ actor ClaudeUsageAPI {
         }
 
         // 401時はKeychainを再読込し、兄弟更新がなければ強制refreshして1回だけ再試行する。
-        switch await ClaudeOAuthRefresher.refresh(credential, force: true) {
-        case let .credential(refreshed):
-            return await perform(
-                usageRequest(for: refreshed),
-                plan: ClaudeWebUsageAPI.plan(
-                    subscriptionType: refreshed.subscriptionType,
-                    rateLimitTier: refreshed.rateLimitTier
-                )
+        let refresh = await ClaudeOAuthRefresher.refresh(credential, force: true)
+        guard case let .credential(refreshed) = refresh else {
+            return await outcome(ofFailedRefresh: refresh)
+        }
+        return await perform(
+            usageRequest(for: refreshed),
+            plan: ClaudeWebUsageAPI.plan(
+                subscriptionType: refreshed.subscriptionType,
+                rateLimitTier: refreshed.rateLimitTier
             )
+        )
+    }
+
+    /// 更新できなかったときの扱い。期限切れ時と401時で同じにする。
+    /// 拒否やKeychainへ書けない場合は、設定済みのsession keyを先に試す。
+    private static func outcome(
+        ofFailedRefresh refresh: ClaudeOAuthRefresher.Outcome
+    ) async -> AttemptOutcome {
+        switch refresh {
+        case .credential:
+            // 成功は呼び出し側で扱う。ここへは来ない。
+            return .failed
         case let .rateLimited(retryAt):
             return .rateLimited(retryAt: retryAt)
         case .unauthorized:
             return await sessionKeyOutcome() ?? .credentialExpired
         case .keychainUnavailable:
             return await sessionKeyOutcome() ?? .credentialUnavailable
-        case .temporarilyUnavailable:
-            return .failed
-        case .networkOrServer:
+        case .temporarilyUnavailable, .networkOrServer:
             return .failed
         }
     }

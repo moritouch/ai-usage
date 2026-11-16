@@ -307,10 +307,11 @@ struct AgentRow: View {
                 Text(agent.name)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
-                    .layoutPriority(2)
+                    .layoutPriority(1)
                 if let plan = agent.plan {
                     // Staleの印と並ぶと幅が足りず、「Team Premium」が2行に割れていた。
-                    // 1行に保ち、足りなければ少し縮め、それでも足りなければ末尾を省く。
+                    // 幅が足りないときに譲るのはプラン名だけにする（Staleの印と並べ替えは
+                    // 元の幅のまま）。1行に保ち、少し縮め、それでも足りなければ末尾を省く。
                     Text(plan)
                         .font(.caption2)
                         .lineLimit(1)
@@ -318,7 +319,6 @@ struct AgentRow: View {
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
                         .background(.quaternary, in: Capsule())
-                        .layoutPriority(1)
                         .help(plan)
                 }
                 Spacer(minLength: 0)
@@ -335,6 +335,7 @@ struct AgentRow: View {
                         .background(Color.orange.opacity(0.2), in: Capsule())
                     }
                     .buttonStyle(.plain)
+                    .fixedSize()
                     .help(L10n.text("popover.stale.help", language: language))
                     .accessibilityLabel(
                         L10n.text("popover.stale.accessibility", language: language)
